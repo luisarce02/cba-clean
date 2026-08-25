@@ -1,5 +1,6 @@
 package com.cbclean.report.application.report.submit;
 
+import com.cbclean.report.application.port.ReportEventPublisher;
 import com.cbclean.report.domain.model.GeoLocation;
 import com.cbclean.report.domain.model.InvalidReportException;
 import com.cbclean.report.domain.model.Report;
@@ -8,8 +9,10 @@ import com.cbclean.report.domain.model.ReportStatus;
 import com.cbclean.report.domain.repository.ReportRepository;
 import com.cbclean.report.domain.model.ReportType;
 import com.cbclean.report.domain.model.Reporter;
+import com.cbclean.report.integration.event.ReportCreatedEvent;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -19,6 +22,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -28,8 +33,9 @@ class SubmitReportUseCaseTest {
     private static final Instant NOW = Instant.parse("2026-08-25T10:00:00Z");
 
     private final ReportRepository repository = mock(ReportRepository.class);
+    private final ReportEventPublisher events = mock(ReportEventPublisher.class);
     private final SubmitReportUseCase useCase =
-            new SubmitReportUseCase(repository, Clock.fixed(NOW, ZoneOffset.UTC));
+            new SubmitReportUseCase(repository, events, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void validSubmissionCreatesSavesAndReturnsReport() {
@@ -112,6 +118,117 @@ class SubmitReportUseCaseTest {
                 .isInstanceOf(InvalidReportException.class)
                 .hasMessageContaining("Photo ids");
         verifyNoInteractions(repository);
+    }
+
+    @Test
+    void validSubmissionPublishesEventAfterSuccessfulPersistence() {
+        useCase.execute(validCommand());
+
+        InOrder inOrder = inOrder(repository, events);
+        inOrder.verify(repository).save(any(Report.class));
+        inOrder.verify(events).publishReportCreated(any(ReportCreatedEvent.class));
+    }
+
+    @Test
+    void publishedEventCarriesThePersistedReportId() {
+        Report saved = useCase.execute(validCommand());
+
+        ArgumentCaptor<ReportCreatedEvent> event =
+                ArgumentCaptor.forClass(ReportCreatedEvent.class);
+        verify(events).publishReportCreated(event.capture());
+        assertThat(event.getValue().reportId()).isEqualTo(saved.id().value());
+    }
+
+    @Test
+    void publishedEventMapsDomainEnumsToStringRepresentations() {
+        useCase.execute(new SubmitReportCommand(
+                ReportType.OVERFLOWING_BIN,
+                "Bin overflowing on the corner",
+                GeoLocation.of(48.2082, 16.3738),
+                null,
+                List.of()));
+
+        ArgumentCaptor<ReportCreatedEvent> event =
+                ArgumentCaptor.forClass(ReportCreatedEvent.class);
+        verify(events).publishReportCreated(event.capture());
+
+        ReportCreatedEvent published = event.getValue();
+        assertThat(published.reportType())
+                .isEqualTo(ReportType.OVERFLOWING_BIN.name())
+                .isEqualTo("OVERFLOWING_BIN");
+        assertThat(published.priority())
+                .isEqualTo(ReportPriority.NORMAL.name())
+                .isEqualTo("NORMAL");
+    }
+
+    @Test
+    void publishedEventContainsTheReportLocation() {
+        GeoLocation location = new GeoLocation(48.2082, 16.3738, "  Main Street 1  ");
+
+        useCase.execute(new SubmitReportCommand(
+                ReportType.LITTER, null, location, null, null));
+
+        ArgumentCaptor<ReportCreatedEvent> event =
+                ArgumentCaptor.forClass(ReportCreatedEvent.class);
+        verify(events).publishReportCreated(event.capture());
+
+        ReportCreatedEvent.Location publishedLocation = event.getValue().location();
+        assertThat(publishedLocation.latitude()).isEqualTo(location.latitude());
+        assertThat(publishedLocation.longitude()).isEqualTo(location.longitude());
+        assertThat(publishedLocation.address()).isEqualTo("Main Street 1");
+    }
+
+    @Test
+    void publishedEventContainsIdentityAndTimestamps() {
+        useCase.execute(validCommand());
+
+        ArgumentCaptor<ReportCreatedEvent> event =
+                ArgumentCaptor.forClass(ReportCreatedEvent.class);
+        verify(events).publishReportCreated(event.capture());
+
+        ReportCreatedEvent published = event.getValue();
+        assertThat(published.eventId()).isNotNull();
+        assertThat(published.occurredAt()).isEqualTo(NOW);
+        assertThat(published.description()).isEqualTo("Waste dumped next to the river");
+    }
+
+    @Test
+    void invalidSubmissionsDoNotPublishAnyEvent() {
+        SubmitReportCommand missingType = new SubmitReportCommand(
+                null, null, GeoLocation.of(48.2082, 16.3738), null, null);
+        SubmitReportCommand missingLocation = new SubmitReportCommand(
+                ReportType.LITTER, null, null, null, null);
+
+        assertThatThrownBy(() -> useCase.execute(missingType))
+                .isInstanceOf(InvalidReportException.class);
+        assertThatThrownBy(() -> useCase.execute(missingLocation))
+                .isInstanceOf(InvalidReportException.class);
+        assertThatThrownBy(() -> useCase.execute(commandWithReporter(
+                new Reporter("Jane", "not-an-email", null))))
+                .isInstanceOf(InvalidReportException.class);
+
+        verifyNoInteractions(repository, events);
+    }
+
+    @Test
+    void repositoryFailureDoesNotPublishAnEvent() {
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(repository).save(any(Report.class));
+
+        assertThatThrownBy(() -> useCase.execute(validCommand()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("database unavailable");
+
+        verifyNoInteractions(events);
+    }
+
+    private SubmitReportCommand validCommand() {
+        return new SubmitReportCommand(
+                ReportType.ILLEGAL_DUMPING,
+                "  Waste dumped next to the river  ",
+                GeoLocation.of(48.2082, 16.3738),
+                null,
+                List.of("photo-1"));
     }
 
     private SubmitReportCommand commandWithReporter(Reporter reporter) {
