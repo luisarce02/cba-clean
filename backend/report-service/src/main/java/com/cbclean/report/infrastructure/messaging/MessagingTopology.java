@@ -22,6 +22,13 @@ public class MessagingTopology {
     public static final String REPORT_CREATED_ROUTING_KEY = "report.created";
     public static final String INCIDENT_REPORT_CREATED_QUEUE = "incident-service.report-created";
 
+    /**
+     * Must mirror the Incident Service's declarations exactly: RabbitMQ rejects
+     * redeclaration of an existing durable queue with different arguments.
+     */
+    public static final String DEAD_LETTER_EXCHANGE = "cba-clean.dlx";
+    public static final String INCIDENT_REPORT_CREATED_DLQ = "incident-service.report-created.dlq";
+
     @Bean
     public TopicExchange eventsExchange() {
         return ExchangeBuilder.topicExchange(EVENTS_EXCHANGE)
@@ -32,6 +39,8 @@ public class MessagingTopology {
     @Bean
     public Queue incidentReportCreatedQueue() {
         return QueueBuilder.durable(INCIDENT_REPORT_CREATED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(INCIDENT_REPORT_CREATED_DLQ)
                 .build();
     }
 

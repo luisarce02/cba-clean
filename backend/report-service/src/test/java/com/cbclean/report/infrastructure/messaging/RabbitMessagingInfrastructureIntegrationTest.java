@@ -49,8 +49,8 @@ class RabbitMessagingInfrastructureIntegrationTest {
 
             channel.exchangeDeclarePassive(MessagingTopology.EVENTS_EXCHANGE);
 
-            AMQP.Queue.DeclareOk queue = channel.queueDeclare(
-                    MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE, true, false, false, null);
+            AMQP.Queue.DeclareOk queue = channel.queueDeclarePassive(
+                    MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE);
             assertThat(queue.getQueue()).isEqualTo(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE);
 
             byte[] payload = "topology-check".getBytes(StandardCharsets.UTF_8);

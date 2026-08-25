@@ -17,23 +17,32 @@ import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 
 /**
- * Documents the interaction between processing failure and idempotency: the
- * first delivery claims the event and then fails inside the use case; the
- * redelivered message is skipped as already claimed and acknowledged.
+ * Documents the interaction between processing failure, bounded retries and
+ * idempotency: the first delivery wins the claim and then fails inside the use
+ * case. The retry chain redelivers the message, but the redelivery is skipped
+ * as an already-claimed event - acknowledged without invoking the use case
+ * again and without dead-lettering.
  *
- * <p>This is the documented failure window of at-most-once event processing:
- * no incident is created for the failed event. Eliminating the window would
- * require transactional incident+claim writes or an outbox pattern.</p>
+ * <p>This is the documented failure window of claim-first idempotency: no
+ * incident is created for such an event. Retries help failures up to and
+ * including the claim itself (e.g. MongoDB unavailable); they cannot repair a
+ * failure that happens after the claim was consumed. Eliminating the window
+ * would require transactional incident+claim writes or an outbox pattern.</p>
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+        "incident.messaging.retry.max-retries=3",
+        "incident.messaging.retry.delays[0]=100ms",
+        "incident.messaging.retry.delays[1]=200ms",
+        "incident.messaging.retry.delays[2]=300ms"
+})
 @Testcontainers
 class ReportCreatedEventConsumerAcknowledgementIntegrationTest {
 
@@ -61,7 +70,7 @@ class ReportCreatedEventConsumerAcknowledgementIntegrationTest {
     private ProcessedEventMongoRepository processedEvents;
 
     @Test
-    void failedProcessingIsEventuallyAcknowledgedWithoutCreatingAnIncidentOrRetrying() {
+    void failedProcessingIsRetriedThenSkippedAsClaimedWithoutCreatingAnIncidentOrDeadLettering() {
         Mockito.doThrow(new IllegalStateException("simulated persistence failure"))
                 .when(openIncidentUseCase).execute(any(OpenIncidentCommand.class));
 
@@ -82,31 +91,46 @@ class ReportCreatedEventConsumerAcknowledgementIntegrationTest {
         Mockito.verify(openIncidentUseCase, Mockito.timeout(10_000).times(1))
                 .execute(any(OpenIncidentCommand.class));
 
-        awaitQueueDrained(Duration.ofSeconds(10));
+        awaitQueueDrained(Duration.ofSeconds(15));
+        awaitRetryQueuesDrained(Duration.ofSeconds(15));
 
         assertThat(incidents.count()).isZero();
         assertThat(processedEvents.count())
-                .as("the failed delivery still consumed the single claim").isEqualTo(1);
-
-        Long remaining = queueMessageCount();
-        assertThat(remaining).as("redelivered message skipped and acknowledged").isZero();
+                .as("the failed delivery consumed the single claim").isEqualTo(1);
+        assertThat(queueMessageCount(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE))
+                .as("redelivered message skipped as claimed and acknowledged").isZero();
+        assertThat(queueMessageCount(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ))
+                .as("duplicate skip is a successful outcome, not a dead letter").isZero();
         Mockito.verify(openIncidentUseCase, Mockito.times(1))
                 .execute(any(OpenIncidentCommand.class));
     }
 
     private void awaitQueueDrained(Duration timeout) {
+        awaitQueueCount(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE, 0, timeout);
+    }
+
+    private void awaitRetryQueuesDrained(Duration timeout) {
+        for (int retryNumber = 1; retryNumber <= 3; retryNumber++) {
+            awaitQueueCount(MessagingTopology.retryQueue(retryNumber), 0, timeout);
+        }
+    }
+
+    private void awaitQueueCount(String queueName, int expected, Duration timeout) {
         long deadline = System.nanoTime() + timeout.toNanos();
+        Long last = null;
         while (System.nanoTime() < deadline) {
-            if (queueMessageCount() == 0) {
+            last = queueMessageCount(queueName);
+            if (last != null && last == expected) {
                 return;
             }
             sleepUnchecked(200);
         }
+        throw new AssertionError("Expected queue [" + queueName + "] to reach " + expected
+                + " message(s) within " + timeout.toSeconds() + "s, found " + last);
     }
 
-    private Long queueMessageCount() {
-        return rabbitTemplate.execute(channel ->
-                channel.messageCount(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE));
+    private Long queueMessageCount(String queueName) {
+        return rabbitTemplate.execute(channel -> channel.messageCount(queueName));
     }
 
     private static void sleepUnchecked(long millis) {

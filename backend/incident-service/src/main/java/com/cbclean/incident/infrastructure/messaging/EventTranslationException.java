@@ -4,10 +4,10 @@ package com.cbclean.incident.infrastructure.messaging;
  * Thrown when an inbound {@code ReportCreatedEvent} carries a report type or
  * priority that has no counterpart in the Incident Service domain enums.
  *
- * <p>Thrown from the messaging infrastructure only: the message is not
- * acknowledged and RabbitMQ redelivers it. This is deliberate - unknown
- * integration values must never be silently coerced into arbitrary domain
- * values. Dead-lettering of such poison messages is an explicit follow-up.</p>
+ * <p>Thrown from the messaging infrastructure only. Classified as a permanent
+ * (poison message) failure: redelivery can never succeed, so the consumer
+ * routes such messages straight to the dead letter queue via
+ * {@link ReportCreatedEventRetryRouter#deadLetter} instead of retrying.</p>
  */
 public class EventTranslationException extends RuntimeException {
 
