@@ -3,9 +3,12 @@ package com.cbclean.incident.infrastructure.messaging;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.GetResponse;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.connection.Connection;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -32,6 +35,26 @@ class RabbitMessagingInfrastructureIntegrationTest {
 
     @Autowired
     private ConnectionFactory connectionFactory;
+
+    @Autowired
+    private RabbitListenerEndpointRegistry listenerRegistry;
+
+    private boolean listenersWereRunning;
+
+    @BeforeEach
+    void pauseConsumers() {
+        listenersWereRunning = listenerRegistry.isRunning();
+        if (listenersWereRunning) {
+            listenerRegistry.stop();
+        }
+    }
+
+    @AfterEach
+    void resumeConsumers() {
+        if (listenersWereRunning) {
+            listenerRegistry.start();
+        }
+    }
 
     @Test
     void establishesConnectionToRabbitMq() {
