@@ -30,5 +30,35 @@ services:
       postgres:
         condition: service_healthy
 
+  mongo:
+    image: mongo:7.0
+    container_name: cbaclean-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-cbaclean}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-cbaclean}
+    ports:
+      - "27017:27017"
+    volumes:
+      - cbaclean_mongodata:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet -u $${MONGO_INITDB_ROOT_USERNAME} -p $${MONGO_INITDB_ROOT_PASSWORD} --eval 'db.adminCommand(\"ping\").ok' | grep 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  incident-service:
+    build:
+      context: ./backend/incident-service
+    container_name: cbaclean-incident-service
+    environment:
+      MONGO_URI: mongodb://${MONGO_USERNAME:-cbaclean}:${MONGO_PASSWORD:-cbaclean}@mongo:27017/cbaclean?authSource=admin
+      MONGO_DATABASE: cbaclean
+    ports:
+      - "8081:8081"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
 volumes:
   cbaclean_pgdata:
+  cbaclean_mongodata:
