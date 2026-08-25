@@ -2,6 +2,7 @@ package com.cbclean.report.presentation;
 
 import com.cbclean.report.application.report.get.ReportNotFoundException;
 import com.cbclean.report.domain.model.InvalidReportException;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,11 +25,17 @@ public class GlobalRestExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalRestExceptionHandler.class);
 
+    @Schema(description = "Error body returned by all non-2xx responses of the REST API")
     public record ApiErrorResponse(
+            @Schema(description = "HTTP status code", example = "400")
             int status,
+            @Schema(description = "HTTP status reason phrase", example = "Bad Request")
             String error,
+            @Schema(description = "Human-readable description of what went wrong", example = "Request validation failed")
             String message,
+            @Schema(description = "Per-field validation errors; only present for request validation failures")
             List<Map<String, String>> fieldErrors,
+            @Schema(description = "Timestamp (UTC) when the error occurred")
             Instant timestamp) {
     }
 

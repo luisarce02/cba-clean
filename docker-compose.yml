@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cbaclean-postgres
+    environment:
+      POSTGRES_DB: cbaclean
+      POSTGRES_USER: cbaclean
+      POSTGRES_PASSWORD: cbaclean
+    ports:
+      - "5432:5432"
+    volumes:
+      - cbaclean_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cbaclean -d cbaclean"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  report-service:
+    build:
+      context: ./backend/report-service
+    container_name: cbaclean-report-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/cbaclean
+      DB_USERNAME: cbaclean
+      DB_PASSWORD: cbaclean
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  cbaclean_pgdata:
