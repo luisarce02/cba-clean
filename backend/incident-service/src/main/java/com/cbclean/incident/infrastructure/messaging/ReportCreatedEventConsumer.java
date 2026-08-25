@@ -7,6 +7,7 @@ import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 /**
@@ -35,23 +36,32 @@ import org.springframework.stereotype.Component;
  * the use case.</p>
  *
  * <p>Translation happens before claiming: an unmappable (poison) message fails
- * loudly and keeps being redelivered instead of being silently swallowed as a
- * "duplicate".</p>
+ * loudly instead of being silently swallowed as a "duplicate".</p>
  *
- * <h2>Acknowledgement semantics</h2>
+ * <h2>Retry / dead-letter handling</h2>
  *
- * <p>The listener container runs in Spring AMQP's default {@code AUTO}
- * acknowledge mode:</p>
+ * <p>The consumer classifies its own failures and routes them explicitly via
+ * {@link ReportCreatedEventRetryRouter}; exceptions are never swallowed just to
+ * make a message disappear:</p>
  *
  * <ul>
- *   <li><b>Success</b> - when this method returns normally (claim won or
- *   duplicate skipped), Spring acknowledges the message.</li>
- *   <li><b>Failure</b> - if any exception propagates out of this method
- *   (translation failure, domain validation failure, persistence failure on
- *   first-time processing), the message is <em>not</em> acknowledged and
- *   RabbitMQ redelivers it. Exceptions are never swallowed, but they may be
- *   logged by the container error handler.</li>
+ *   <li><b>Success</b> - use case returns normally (claim won or duplicate
+ *   skipped), Spring acknowledges the message.</li>
+ *   <li><b>Poison message</b> - unknown report type or priority
+ *   ({@link EventTranslationException}) can never succeed, so the message is
+ *   routed straight to the DLQ.</li>
+ *   <li><b>Transient failure</b> - any other exception (e.g. MongoDB
+ *   unavailable): the message is republished onto the bounded TTL retry chain
+ *   and acknowledged only once that copy is safely published; if publication
+ *   itself fails, the exception propagates and RabbitMQ redelivers the
+ *   original. Once {@code max-retries} retries have been performed, the next
+ *   failure routes the message to the DLQ.</li>
  * </ul>
+ *
+ * <p>Fatally malformed JSON never reaches this method: the listener container's
+ * error handler rejects such deliveries without requeueing, and the main
+ * queue's dead-letter arguments ({@code x-dead-letter-exchange =
+ * cba-clean.dlx}) route them straight into the DLQ.</p>
  *
  * <h2>Failure windows</h2>
  *
@@ -63,7 +73,11 @@ import org.springframework.stereotype.Component;
  *   incident was persisted, the redelivered message is skipped as a claimed
  *   event and no incident is created for it. The window between claim and
  *   incident persistence is accepted; eliminating it would require a
- *   transactional store shared by both writes or an outbox pattern.</li>
+ *   transactional store shared by both writes or an outbox pattern. The retry
+ *   chain does not change this: a retry of an already-claimed event is skipped
+ *   as a duplicate before the use case runs again - retries therefore help
+ *   failures that occur up to and including the claim, not failures after it.
+ *   </li>
  *   <li>A crash after incident persistence but before acknowledgement is
  *   harmless: the redelivered message is skipped as already claimed.</li>
  * </ul>
@@ -77,17 +91,33 @@ public class ReportCreatedEventConsumer {
 
     private final OpenIncidentUseCase openIncident;
     private final ProcessedEventRecorder processedEvents;
+    private final ReportCreatedEventRetryRouter retryRouter;
 
     public ReportCreatedEventConsumer(OpenIncidentUseCase openIncident,
-                                      ProcessedEventRecorder processedEvents) {
+                                      ProcessedEventRecorder processedEvents,
+                                      ReportCreatedEventRetryRouter retryRouter) {
         this.openIncident = openIncident;
         this.processedEvents = processedEvents;
+        this.retryRouter = retryRouter;
     }
 
     @RabbitListener(queues = MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE)
-    public void onReportCreated(ReportCreatedEvent event) {
-        log.debug("Received ReportCreatedEvent [{}] for report [{}]",
-                event.eventId(), event.reportId());
+    public void onReportCreated(
+            ReportCreatedEvent event,
+            @Header(name = MessagingTopology.RETRY_COUNT_HEADER, required = false) Integer previousRetries) {
+        log.debug("Received ReportCreatedEvent [{}] for report [{}] (retry {})",
+                event.eventId(), event.reportId(),
+                previousRetries == null ? 0 : previousRetries);
+        try {
+            process(event);
+        } catch (EventTranslationException poison) {
+            retryRouter.deadLetter(event, previousRetries, poison);
+        } catch (RuntimeException transientFailure) {
+            retryRouter.retryOrDeadLetter(event, previousRetries, transientFailure);
+        }
+    }
+
+    private void process(ReportCreatedEvent event) {
         OpenIncidentCommand command = ReportCreatedEventMapper.toCommand(event);
         if (!processedEvents.tryClaim(event.eventId(), REPORT_CREATED_EVENT_TYPE)) {
             log.info("Ignored duplicate ReportCreatedEvent [{}] for report [{}]",

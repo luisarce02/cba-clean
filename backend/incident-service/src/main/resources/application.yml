@@ -15,6 +15,14 @@ spring:
 server:
   port: 8081
 
+incident:
+  messaging:
+    retry:
+      # Retries after the initial delivery; afterwards messages go to the DLQ.
+      max-retries: ${INCIDENT_RETRY_MAX_RETRIES:3}
+      # TTL applied by retry queue i = delays[i-1] (progressive backoff).
+      delays: ${INCIDENT_RETRY_DELAYS:2s,4s,8s}
+
 management:
   endpoints:
     web:

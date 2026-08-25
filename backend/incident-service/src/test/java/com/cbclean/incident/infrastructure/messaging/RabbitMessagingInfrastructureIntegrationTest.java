@@ -67,14 +67,77 @@ class RabbitMessagingInfrastructureIntegrationTest {
     }
 
     @Test
+    void declaresDurableDeadLetterExchangeQueueAndRetryQueues() throws Exception {
+        try (Connection connection = connectionFactory.createConnection();
+             Channel channel = connection.createChannel(false)) {
+
+            channel.exchangeDeclarePassive(MessagingTopology.DEAD_LETTER_EXCHANGE);
+            channel.exchangeDeclarePassive(MessagingTopology.EVENTS_EXCHANGE);
+
+            channel.queueDeclarePassive(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE);
+            channel.queueDeclarePassive(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ);
+            for (int retryNumber = 1; retryNumber <= 3; retryNumber++) {
+                channel.queueDeclarePassive(MessagingTopology.retryQueue(retryNumber));
+            }
+
+            byte[] payload = "durability-check".getBytes(StandardCharsets.UTF_8);
+            AMQP.BasicProperties persistent = new AMQP.BasicProperties.Builder()
+                    .deliveryMode(2)
+                    .build();
+
+            // DLQ binding on the DLX.
+            channel.basicPublish(MessagingTopology.DEAD_LETTER_EXCHANGE,
+                    MessagingTopology.INCIDENT_REPORT_CREATED_DLQ, persistent, payload);
+            GetResponse dead = pollFor(() -> {
+                try {
+                    return channel.basicGet(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ, true);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            assertThat(dead).as("DLX routes the DLQ routing key into the DLQ").isNotNull();
+
+            // Retry chain: publishing onto the first retry queue's routing key
+            // must resurface the message on the main queue after its TTL.
+            channel.basicPublish(MessagingTopology.DEAD_LETTER_EXCHANGE,
+                    MessagingTopology.retryQueue(1), persistent, payload);
+            GetResponse retried = pollFor(() -> {
+                try {
+                    return channel.basicGet(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE, true);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            assertThat(retried)
+                    .as("retry queue expiry dead-letters back to the main exchange")
+                    .isNotNull();
+            assertThat(new String(retried.getBody(), StandardCharsets.UTF_8))
+                    .isEqualTo("durability-check");
+        }
+    }
+
+    private GetResponse pollFor(java.util.function.Supplier<GetResponse> getter)
+            throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 15_000;
+        while (System.currentTimeMillis() < deadline) {
+            GetResponse response = getter.get();
+            if (response != null) {
+                return response;
+            }
+            Thread.sleep(200);
+        }
+        return null;
+    }
+
+    @Test
     void declaresDurableExchangeAndQueueBoundWithReportCreatedRoutingKey() throws Exception {
         try (Connection connection = connectionFactory.createConnection();
              Channel channel = connection.createChannel(false)) {
 
             channel.exchangeDeclarePassive(MessagingTopology.EVENTS_EXCHANGE);
 
-            AMQP.Queue.DeclareOk queue = channel.queueDeclare(
-                    MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE, true, false, false, null);
+            AMQP.Queue.DeclareOk queue = channel.queueDeclarePassive(
+                    MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE);
             assertThat(queue.getQueue()).isEqualTo(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE);
 
             byte[] payload = "topology-check".getBytes(StandardCharsets.UTF_8);

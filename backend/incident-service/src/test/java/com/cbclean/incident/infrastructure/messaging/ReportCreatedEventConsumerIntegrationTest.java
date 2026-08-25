@@ -80,6 +80,8 @@ class ReportCreatedEventConsumerIntegrationTest {
         assertThat(saved.getLocation().address()).isEqualTo("Naschmarkt 3");
 
         assertThat(queueMessageCount()).isZero();
+        assertThat(dlqMessageCount())
+                .as("successful processing must not dead-letter").isZero();
     }
 
     /**
@@ -134,6 +136,12 @@ class ReportCreatedEventConsumerIntegrationTest {
     private int queueMessageCount() {
         Long count = rabbitTemplate.execute(channel ->
                 channel.messageCount(MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE));
+        return count == null ? -1 : count.intValue();
+    }
+
+    private int dlqMessageCount() {
+        Long count = rabbitTemplate.execute(channel ->
+                channel.messageCount(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ));
         return count == null ? -1 : count.intValue();
     }
 
