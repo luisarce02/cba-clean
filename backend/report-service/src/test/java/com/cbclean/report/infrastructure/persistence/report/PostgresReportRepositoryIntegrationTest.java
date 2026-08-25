@@ -1,5 +1,6 @@
 package com.cbclean.report.infrastructure.persistence.report;
 
+import com.cbclean.report.application.port.ReportEventPublisher;
 import com.cbclean.report.application.report.submit.SubmitReportCommand;
 import com.cbclean.report.application.report.submit.SubmitReportUseCase;
 import com.cbclean.report.domain.model.GeoLocation;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -45,6 +47,13 @@ class PostgresReportRepositoryIntegrationTest {
 
     @Autowired
     private SubmitReportUseCase submitReportUseCase;
+
+    /**
+     * Persistence-focused tests must not depend on a RabbitMQ broker; event
+     * publication itself is covered by dedicated messaging tests.
+     */
+    @MockitoBean
+    private ReportEventPublisher reportEventPublisher;
 
     @BeforeEach
     void cleanDatabase() {
