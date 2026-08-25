@@ -16,6 +16,24 @@ services:
       timeout: 3s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: cbaclean-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-cbaclean}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-cbaclean}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - cbaclean_rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   report-service:
     build:
       context: ./backend/report-service
@@ -24,10 +42,16 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/cbaclean
       DB_USERNAME: cbaclean
       DB_PASSWORD: cbaclean
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-cbaclean}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cbaclean}
     ports:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   mongo:
@@ -53,12 +77,19 @@ services:
     environment:
       MONGO_URI: mongodb://${MONGO_USERNAME:-cbaclean}:${MONGO_PASSWORD:-cbaclean}@mongo:27017/cbaclean?authSource=admin
       MONGO_DATABASE: cbaclean
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-cbaclean}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cbaclean}
     ports:
       - "8081:8081"
     depends_on:
       mongo:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   cbaclean_pgdata:
   cbaclean_mongodata:
+  cbaclean_rabbitmqdata:

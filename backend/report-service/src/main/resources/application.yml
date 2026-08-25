@@ -19,6 +19,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:cbaclean}
+    password: ${RABBITMQ_PASSWORD:cbaclean}
+
 springdoc:
   api-docs:
     enabled: true
