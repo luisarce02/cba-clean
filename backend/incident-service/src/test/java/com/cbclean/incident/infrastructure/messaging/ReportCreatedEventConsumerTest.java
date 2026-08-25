@@ -2,6 +2,7 @@ package com.cbclean.incident.infrastructure.messaging;
 
 import com.cbclean.incident.application.incident.open.OpenIncidentCommand;
 import com.cbclean.incident.application.incident.open.OpenIncidentUseCase;
+import com.cbclean.incident.application.port.ProcessedEventRecorder;
 import com.cbclean.incident.domain.model.IncidentPriority;
 import com.cbclean.incident.domain.model.IncidentType;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
@@ -11,12 +12,17 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class ReportCreatedEventConsumerTest {
 
@@ -25,7 +31,9 @@ class ReportCreatedEventConsumerTest {
     private static final UUID REPORT_ID = UUID.fromString("dddddddd-4444-4444-4444-444444444444");
 
     private final OpenIncidentUseCase useCase = mock(OpenIncidentUseCase.class);
-    private final ReportCreatedEventConsumer consumer = new ReportCreatedEventConsumer(useCase);
+    private final ProcessedEventRecorder processedEvents = mock(ProcessedEventRecorder.class);
+    private final ReportCreatedEventConsumer consumer =
+            new ReportCreatedEventConsumer(useCase, processedEvents);
 
     private ReportCreatedEvent validEvent() {
         return new ReportCreatedEvent(
@@ -39,14 +47,28 @@ class ReportCreatedEventConsumerTest {
     }
 
     @Test
-    void invokesUseCaseWithCommandMappedFromTheEvent() {
+    void processesNewEventThroughTheUseCase() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
+
         consumer.onReportCreated(validEvent());
 
         verify(useCase).execute(any(OpenIncidentCommand.class));
     }
 
     @Test
+    void recordsTheProcessedEventWithEventIdAndEventTypeBeforeInvokingTheUseCase() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
+
+        consumer.onReportCreated(validEvent());
+
+        verify(processedEvents).tryClaim(EVENT_ID, "report.created");
+        verify(useCase).execute(any(OpenIncidentCommand.class));
+    }
+
+    @Test
     void passesTheExpectedCommandToTheUseCase() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
+
         consumer.onReportCreated(validEvent());
 
         OpenIncidentCommand expected = new OpenIncidentCommand(
@@ -62,14 +84,59 @@ class ReportCreatedEventConsumerTest {
 
     @Test
     void mapsReportIdCorrectly() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
+
         consumer.onReportCreated(validEvent());
 
-        verify(useCase).execute(org.mockito.ArgumentMatchers.argThat(command ->
+        verify(useCase).execute(argThat(command ->
                 command.reportId().value().equals(REPORT_ID)));
     }
 
     @Test
-    void unknownReportTypeNeverReachesTheUseCase() {
+    void duplicateEventIsSkippedWithoutInvokingTheUseCaseAndWithoutFailing() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(false);
+
+        assertThatCode(() -> consumer.onReportCreated(validEvent()))
+                .doesNotThrowAnyException();
+
+        verifyNoInteractions(useCase);
+    }
+
+    @Test
+    void eventIdentityIsTheEventIdNotTheReportId() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
+
+        UUID otherReport = UUID.randomUUID();
+        ReportCreatedEvent sameEventDifferentReport = new ReportCreatedEvent(
+                EVENT_ID, OCCURRED_AT, otherReport, "LITTER", "LOW", null,
+                new ReportCreatedEvent.Location(48.2, 16.4, null));
+
+        consumer.onReportCreated(validEvent());
+        consumer.onReportCreated(sameEventDifferentReport);
+
+        verify(processedEvents, org.mockito.Mockito.times(2))
+                .tryClaim(EVENT_ID, "report.created");
+    }
+
+    @Test
+    void differentEventsForTheSameReportAreBothClaimed() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
+
+        UUID secondEventId = UUID.randomUUID();
+        ReportCreatedEvent differentEventSameReport = new ReportCreatedEvent(
+                secondEventId, OCCURRED_AT, REPORT_ID, "LITTER", "LOW", null,
+                new ReportCreatedEvent.Location(48.2, 16.4, null));
+
+        consumer.onReportCreated(validEvent());
+        consumer.onReportCreated(differentEventSameReport);
+
+        verify(processedEvents).tryClaim(EVENT_ID, "report.created");
+        verify(processedEvents).tryClaim(secondEventId, "report.created");
+        verify(useCase, org.mockito.Mockito.times(2)).execute(any(OpenIncidentCommand.class));
+    }
+
+    @Test
+    void unknownReportTypeNeverReachesTheClaimOrTheUseCase() {
         ReportCreatedEvent event = new ReportCreatedEvent(
                 EVENT_ID, OCCURRED_AT, REPORT_ID, "SOMETHING_ELSE", "LOW", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
@@ -78,10 +145,11 @@ class ReportCreatedEventConsumerTest {
                 .isInstanceOf(EventTranslationException.class);
 
         verifyNoInteractions(useCase);
+        verify(processedEvents, never()).tryClaim(any(UUID.class), anyString());
     }
 
     @Test
-    void unknownPriorityNeverReachesTheUseCase() {
+    void unknownPriorityNeverReachesTheClaimOrTheUseCase() {
         ReportCreatedEvent event = new ReportCreatedEvent(
                 EVENT_ID, OCCURRED_AT, REPORT_ID, "LITTER", "EXTREME", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
@@ -90,10 +158,12 @@ class ReportCreatedEventConsumerTest {
                 .isInstanceOf(EventTranslationException.class);
 
         verifyNoInteractions(useCase);
+        verify(processedEvents, never()).tryClaim(any(UUID.class), anyString());
     }
 
     @Test
-    void useCaseFailurePropagatesInsteadOfBeingSwallowed() {
+    void useCaseFailureOnFirstProcessingPropagatesInsteadOfBeingSwallowed() {
+        when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
         doThrow(new IllegalStateException("persistence failed"))
                 .when(useCase).execute(any(OpenIncidentCommand.class));
 

@@ -26,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ReportCreatedEventConsumerIntegrationTest {
 
     private static final UUID EVENT_ID = UUID.fromString("eeeeeeee-5555-5555-5555-555555555555");
+    private static final UUID QUEUED_EVENT_ID =
+            UUID.fromString("0e0e0e0e-9999-9999-9999-999999999999");
     private static final Instant OCCURRED_AT = Instant.parse("2026-08-25T12:00:00Z");
     private static final UUID REPORT_ID = UUID.fromString("ffffffff-6666-6666-6666-666666666666");
 
@@ -93,7 +95,7 @@ class ReportCreatedEventConsumerIntegrationTest {
 
         try {
             ReportCreatedEvent queued = new ReportCreatedEvent(
-                    EVENT_ID,
+                    QUEUED_EVENT_ID,
                     OCCURRED_AT,
                     REPORT_ID,
                     "OVERFLOWING_BIN",
