@@ -24,7 +24,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * and the resolved ID is always echoed in the response header.
  */
 @WebMvcTest(com.cbclean.report.presentation.report.ReportController.class)
+@org.springframework.context.annotation.Import({
+        com.cbclean.report.presentation.security.ReportServiceSecurityConfig.class,
+        com.cbclean.report.presentation.security.RestAuthenticationEntryPoint.class,
+        com.cbclean.report.presentation.security.RestAccessDeniedHandler.class,
+        com.cbclean.report.presentation.security.RolesClaimAuthenticationConverter.class})
+@org.springframework.security.test.context.support.WithMockUser(authorities = "ROLE_REPORTER")
 class ReportControllerCorrelationTest {
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
     private static final String VALID_BODY = """
             {

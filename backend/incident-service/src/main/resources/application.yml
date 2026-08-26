@@ -12,6 +12,14 @@ spring:
     username: ${RABBITMQ_USERNAME:cbaclean}
     password: ${RABBITMQ_PASSWORD:cbaclean}
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Secures the Actuator surface (the service has no REST API; the
+          # RabbitMQ flow is authenticated by the broker connection).
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000}
+
 server:
   port: 8081
 
@@ -22,6 +30,12 @@ incident:
       max-retries: ${INCIDENT_RETRY_MAX_RETRIES:3}
       # TTL applied by retry queue i = delays[i-1] (progressive backoff).
       delays: ${INCIDENT_RETRY_DELAYS:2s,4s,8s}
+
+cbaclean:
+  security:
+    jwt:
+      # Optional audience validation; blank disables the aud check.
+      audience: ${JWT_AUDIENCE:}
 
 management:
   endpoints:
