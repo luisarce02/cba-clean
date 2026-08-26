@@ -6,6 +6,8 @@ import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.model.ReportId;
 import com.cbclean.report.domain.repository.ReportRepository;
 import com.cbclean.report.integration.event.ReportCreatedEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.util.Objects;
@@ -29,6 +31,8 @@ import java.util.UUID;
  */
 public class SubmitReportUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(SubmitReportUseCase.class);
+
     private final ReportRepository reports;
     private final ReportEventPublisher events;
     private final Clock clock;
@@ -50,8 +54,21 @@ public class SubmitReportUseCase {
                 command.photoIds(),
                 null,
                 clock.instant());
+        log.info("operation=report-received result=accepted reportId={} reportType={}",
+                report.id().value(), report.type());
         reports.save(report);
-        events.publishReportCreated(toEvent(report));
+        log.info("operation=report-persisted result=saved reportId={}", report.id().value());
+
+        ReportCreatedEvent event = toEvent(report);
+        try {
+            events.publishReportCreated(event);
+            log.info("operation=event-publish result=published eventType={} eventId={} reportId={}",
+                    "report.created", event.eventId(), event.reportId());
+        } catch (RuntimeException publicationFailure) {
+            log.error("operation=event-publish result=failed eventType={} eventId={} reportId={}",
+                    "report.created", event.eventId(), event.reportId(), publicationFailure);
+            throw publicationFailure;
+        }
         return report;
     }
 

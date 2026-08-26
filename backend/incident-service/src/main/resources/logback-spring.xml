@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Structured console logging for CBA Clean.
+
+  Every log line carries the correlation ID from the SLF4J MDC when one is
+  available (extracted by the event consumer from RabbitMQ headers); it is
+  rendered as "-" otherwise. The pattern is set before including Spring Boot's
+  defaults so it takes precedence.
+-->
+<configuration>
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [incident-service] [correlationId=%X{correlationId:-}] %logger{36} - %msg%n"/>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
