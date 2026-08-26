@@ -24,6 +24,16 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:cbaclean}
     password: ${RABBITMQ_PASSWORD:cbaclean}
+    # Publisher confirms let the outbox publisher treat an event as published
+    # only after RabbitMQ accepted it (never merely after convertAndSend
+    # returned).
+    publisher-confirm-type: correlated
+
+cbaclean:
+  outbox:
+    poll-interval: ${OUTBOX_POLL_INTERVAL:PT5S}
+    batch-size: ${OUTBOX_BATCH_SIZE:20}
+    publish-confirm-timeout: ${OUTBOX_PUBLISH_CONFIRM_TIMEOUT:PT5S}
 
 springdoc:
   api-docs:

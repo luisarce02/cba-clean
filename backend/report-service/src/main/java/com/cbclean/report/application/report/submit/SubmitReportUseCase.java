@@ -1,7 +1,10 @@
 package com.cbclean.report.application.report.submit;
 
-import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.correlation.CorrelationContext;
+import com.cbclean.report.application.outbox.OutboxEntry;
+import com.cbclean.report.application.port.OutboxStore;
 import com.cbclean.report.application.port.ReportMetrics;
+import com.cbclean.report.application.port.UnitOfWork;
 import com.cbclean.report.domain.model.GeoLocation;
 import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.model.ReportId;
@@ -18,33 +21,32 @@ import java.util.UUID;
  * Use case: submit a new waste report.
  *
  * <p>Coordinates the flow only - it delegates every business rule to the
- * {@link Report} aggregate, hands the resulting report to the repository and,
- * after successful persistence, publishes a {@link ReportCreatedEvent}
- * through the {@link ReportEventPublisher} port.</p>
+ * {@link Report} aggregate and then persists the report together with its
+ * pending {@link ReportCreatedEvent} inside one atomic unit of work
+ * (the Transactional Outbox Pattern). Publication to RabbitMQ is
+ * <em>not</em> part of this flow: it happens asynchronously from the outbox,
+ * so a submission succeeds whenever PostgreSQL is healthy, even if the broker
+ * is down.</p>
  *
- * <p><strong>Failure semantics:</strong> persistence and event publication are
- * deliberately two separate steps and are <em>not</em> atomic. If persistence
- * succeeds but publication fails, the report stays persisted - it is not
- * rolled back artificially (no distributed transaction). Publication is a
- * synchronous best-effort attempt whose failure remains visible to the
- * caller. The Outbox Pattern may later be introduced as a reliability
- * improvement.</p>
+ * <p><strong>Consistency guarantee:</strong> after this use case returns
+ * successfully, either both the report and its outbox entry are committed or
+ * neither is. There is never a committed report without its pending event.</p>
  */
 public class SubmitReportUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(SubmitReportUseCase.class);
 
-    static final String REPORT_CREATED_EVENT_TYPE = "report.created";
-
     private final ReportRepository reports;
-    private final ReportEventPublisher events;
+    private final OutboxStore outbox;
+    private final UnitOfWork unitOfWork;
     private final Clock clock;
     private final ReportMetrics metrics;
 
-    public SubmitReportUseCase(ReportRepository reports, ReportEventPublisher events,
-                               Clock clock, ReportMetrics metrics) {
+    public SubmitReportUseCase(ReportRepository reports, OutboxStore outbox,
+                               UnitOfWork unitOfWork, Clock clock, ReportMetrics metrics) {
         this.reports = Objects.requireNonNull(reports, "Report repository is required");
-        this.events = Objects.requireNonNull(events, "Report event publisher is required");
+        this.outbox = Objects.requireNonNull(outbox, "Outbox store is required");
+        this.unitOfWork = Objects.requireNonNull(unitOfWork, "Unit of work is required");
         this.clock = Objects.requireNonNull(clock, "Clock is required");
         this.metrics = Objects.requireNonNull(metrics, "Report metrics are required");
     }
@@ -71,30 +73,30 @@ public class SubmitReportUseCase {
                 throw validationFailure;
             }
 
+            // The event identity (eventId) is decided at submission time and
+            // travels unchanged through the outbox into RabbitMQ - downstream
+            // idempotency relies on this stability.
+            ReportCreatedEvent event = toEvent(report);
+            OutboxEntry entry = OutboxEntry.forReportCreated(event, CorrelationContext.current());
+
             try {
-                reports.save(report);
+                // Single transaction boundary: report + outbox entry commit
+                // together or not at all.
+                unitOfWork.execute(() -> {
+                    reports.save(report);
+                    outbox.append(entry);
+                    return null;
+                });
             } catch (RuntimeException persistenceFailure) {
                 metrics.reportFailed();
-                log.error("operation=report-submit result=failed reason=persistence reportId={}",
-                        report.id().value(), persistenceFailure);
+                log.error("operation=report-submit result=failed reason=persistence reportId={} eventId={}",
+                        report.id().value(), event.eventId(), persistenceFailure);
                 throw persistenceFailure;
             }
-            log.info("operation=report-persisted result=saved reportId={}", report.id().value());
-            metrics.reportCreated();
 
-            ReportCreatedEvent event = toEvent(report);
-            try {
-                events.publishReportCreated(event);
-                metrics.eventPublished(REPORT_CREATED_EVENT_TYPE);
-                log.info("operation=event-publish result=published eventType={} eventId={} reportId={}",
-                        REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
-            } catch (RuntimeException publicationFailure) {
-                metrics.eventPublishFailed(REPORT_CREATED_EVENT_TYPE);
-                log.error("operation=event-publish result=failed eventType={} eventId={} reportId={}",
-                        REPORT_CREATED_EVENT_TYPE, event.eventId(), report.id().value(),
-                        publicationFailure);
-                throw publicationFailure;
-            }
+            log.info("operation=report-persisted result=saved reportId={} eventId={}",
+                    report.id().value(), event.eventId());
+            metrics.reportCreated();
             return report;
         });
     }

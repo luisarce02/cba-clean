@@ -1,6 +1,7 @@
 package com.cbclean.report.application.report.submit;
 
-import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.port.OutboxStore;
+import com.cbclean.report.application.port.UnitOfWork;
 import com.cbclean.report.domain.model.GeoLocation;
 import com.cbclean.report.domain.model.InvalidReportException;
 import com.cbclean.report.domain.model.ReportType;
@@ -27,11 +28,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Observable metric behaviour of the submission flow against a real
- * (in-memory) Micrometer registry.
+ * (in-memory) Micrometer registry. Since the outbox refactor, event publication
+ * outcome is measured by the asynchronous outbox publisher, not here.
  */
 class SubmitReportUseCaseMetricsTest {
 
@@ -40,13 +41,13 @@ class SubmitReportUseCaseMetricsTest {
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private final MicrometerReportMetrics metrics = new MicrometerReportMetrics(registry);
     private final ReportRepository repository = mock(ReportRepository.class);
-    private final ReportEventPublisher events = mock(ReportEventPublisher.class);
-    private final SubmitReportUseCase useCase =
-            new SubmitReportUseCase(repository, events, Clock.fixed(NOW, ZoneOffset.UTC), metrics);
+    private final OutboxStore outbox = mock(OutboxStore.class);
+    private final SubmitReportUseCase useCase = new SubmitReportUseCase(
+            repository, outbox, UnitOfWork.identity(), Clock.fixed(NOW, ZoneOffset.UTC), metrics);
 
     @BeforeEach
     void resetMocks() {
-        Mockito.reset(repository, events);
+        Mockito.reset(repository, outbox);
     }
 
     private SubmitReportCommand validCommand() {
@@ -61,15 +62,11 @@ class SubmitReportUseCaseMetricsTest {
     }
 
     @Test
-    void successfulSubmissionIncrementsCreatedAndPublishedCounters() {
+    void successfulSubmissionIncrementsTheCreatedCounter() {
         useCase.execute(validCommand());
 
         assertThat(counterValue(MicrometerReportMetrics.REPORTS_CREATED)).isEqualTo(1.0);
-        assertThat(registry.get(MicrometerReportMetrics.EVENTS_PUBLISHED).counter().count()).isEqualTo(1.0);
-        assertThat(registry.get(MicrometerReportMetrics.EVENTS_PUBLISHED).counter()
-                .getId().getTag("eventType")).isEqualTo("report.created");
         assertThat(counterValue(MicrometerReportMetrics.REPORTS_FAILED)).isZero();
-        assertThat(counterValue(MicrometerReportMetrics.EVENTS_PUBLISH_FAILURES)).isZero();
     }
 
     @Test
@@ -92,7 +89,6 @@ class SubmitReportUseCaseMetricsTest {
 
         assertThat(counterValue(MicrometerReportMetrics.REPORTS_FAILED)).isEqualTo(1.0);
         assertThat(counterValue(MicrometerReportMetrics.REPORTS_CREATED)).isZero();
-        assertThat(counterValue(MicrometerReportMetrics.EVENTS_PUBLISH_FAILURES)).isZero();
         assertThat(registry.get(MicrometerReportMetrics.CREATION_DURATION)
                 .tags("result", "failure").timer().count()).isEqualTo(1);
     }
@@ -110,19 +106,16 @@ class SubmitReportUseCaseMetricsTest {
     }
 
     @Test
-    void publicationFailureIncrementsPublishFailureCounterButNotReportsFailed() {
-        doThrow(new IllegalStateException("broker unavailable"))
-                .when(events).publishReportCreated(any());
+    void outboxPersistenceFailureCountsAsAFailedSubmission() {
+        doThrow(new IllegalStateException("outbox insert failed"))
+                .when(outbox).append(any());
 
         assertThatThrownBy(() -> useCase.execute(validCommand()))
                 .isInstanceOf(IllegalStateException.class);
 
-        assertThat(counterValue(MicrometerReportMetrics.EVENTS_PUBLISH_FAILURES)).isEqualTo(1.0);
-        assertThat(registry.get(MicrometerReportMetrics.EVENTS_PUBLISH_FAILURES).counter()
-                .getId().getTag("eventType")).isEqualTo("report.created");
-        // The report itself was persisted successfully - not a report failure.
-        assertThat(counterValue(MicrometerReportMetrics.REPORTS_CREATED)).isEqualTo(1.0);
-        assertThat(counterValue(MicrometerReportMetrics.REPORTS_FAILED)).isZero();
+        // The whole unit of work failed - the report is not considered created.
+        assertThat(counterValue(MicrometerReportMetrics.REPORTS_FAILED)).isEqualTo(1.0);
+        assertThat(counterValue(MicrometerReportMetrics.REPORTS_CREATED)).isZero();
     }
 
     @Test

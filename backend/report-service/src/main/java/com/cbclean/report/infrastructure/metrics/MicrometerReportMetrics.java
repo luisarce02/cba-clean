@@ -25,8 +25,6 @@ public class MicrometerReportMetrics implements ReportMetrics {
 
     public static final String REPORTS_CREATED = "cbaclean.reports.created";
     public static final String REPORTS_FAILED = "cbaclean.reports.failed";
-    public static final String EVENTS_PUBLISHED = "cbaclean.report.events.published";
-    public static final String EVENTS_PUBLISH_FAILURES = "cbaclean.report.events.publish.failures";
     public static final String CREATION_DURATION = "cbaclean.report.creation.duration";
 
     private final MeterRegistry registry;
@@ -63,24 +61,6 @@ public class MicrometerReportMetrics implements ReportMetrics {
     @Override
     public void reportFailed() {
         counter(REPORTS_FAILED, "Failed report submissions").increment();
-    }
-
-    @Override
-    public void eventPublished(String eventType) {
-        Counter.builder(EVENTS_PUBLISHED)
-                .description("Successfully published integration events")
-                .tag("eventType", eventType)
-                .register(registry)
-                .increment();
-    }
-
-    @Override
-    public void eventPublishFailed(String eventType) {
-        Counter.builder(EVENTS_PUBLISH_FAILURES)
-                .description("Failed integration event publications")
-                .tag("eventType", eventType)
-                .register(registry)
-                .increment();
     }
 
     private Counter counter(String name, String description) {
