@@ -52,7 +52,7 @@ class ReportCreatedEventConsumerTest {
     void processesNewEventThroughTheUseCase() {
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
 
-        consumer.onReportCreated(validEvent(), null);
+        consumer.onReportCreated(validEvent(), null, null);
 
         verify(useCase).execute(any(OpenIncidentCommand.class));
     }
@@ -61,7 +61,7 @@ class ReportCreatedEventConsumerTest {
     void recordsTheProcessedEventWithEventIdAndEventTypeBeforeInvokingTheUseCase() {
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
 
-        consumer.onReportCreated(validEvent(), null);
+        consumer.onReportCreated(validEvent(), null, null);
 
         verify(processedEvents).tryClaim(EVENT_ID, "report.created");
         verify(useCase).execute(any(OpenIncidentCommand.class));
@@ -71,7 +71,7 @@ class ReportCreatedEventConsumerTest {
     void passesTheExpectedCommandToTheUseCase() {
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
 
-        consumer.onReportCreated(validEvent(), null);
+        consumer.onReportCreated(validEvent(), null, null);
 
         OpenIncidentCommand expected = new OpenIncidentCommand(
                 com.cbclean.incident.domain.model.ReportId.fromString(REPORT_ID.toString()),
@@ -88,7 +88,7 @@ class ReportCreatedEventConsumerTest {
     void mapsReportIdCorrectly() {
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
 
-        consumer.onReportCreated(validEvent(), null);
+        consumer.onReportCreated(validEvent(), null, null);
 
         verify(useCase).execute(argThat(command ->
                 command.reportId().value().equals(REPORT_ID)));
@@ -98,7 +98,7 @@ class ReportCreatedEventConsumerTest {
     void duplicateEventIsSkippedWithoutInvokingTheUseCaseAndWithoutFailing() {
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(false);
 
-        assertThatCode(() -> consumer.onReportCreated(validEvent(), null))
+        assertThatCode(() -> consumer.onReportCreated(validEvent(), null, null))
                 .doesNotThrowAnyException();
 
         verifyNoInteractions(useCase);
@@ -113,8 +113,8 @@ class ReportCreatedEventConsumerTest {
                 EVENT_ID, OCCURRED_AT, otherReport, "LITTER", "LOW", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
 
-        consumer.onReportCreated(validEvent(), null);
-        consumer.onReportCreated(sameEventDifferentReport, null);
+        consumer.onReportCreated(validEvent(), null, null);
+        consumer.onReportCreated(sameEventDifferentReport, null, null);
 
         verify(processedEvents, org.mockito.Mockito.times(2))
                 .tryClaim(EVENT_ID, "report.created");
@@ -129,8 +129,8 @@ class ReportCreatedEventConsumerTest {
                 secondEventId, OCCURRED_AT, REPORT_ID, "LITTER", "LOW", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
 
-        consumer.onReportCreated(validEvent(), null);
-        consumer.onReportCreated(differentEventSameReport, null);
+        consumer.onReportCreated(validEvent(), null, null);
+        consumer.onReportCreated(differentEventSameReport, null, null);
 
         verify(processedEvents).tryClaim(EVENT_ID, "report.created");
         verify(processedEvents).tryClaim(secondEventId, "report.created");
@@ -143,9 +143,9 @@ class ReportCreatedEventConsumerTest {
                 EVENT_ID, OCCURRED_AT, REPORT_ID, "SOMETHING_ELSE", "LOW", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
 
-        consumer.onReportCreated(event, null);
+        consumer.onReportCreated(event, null, null);
 
-        verify(retryRouter).deadLetter(eq(event), isNull(), any(EventTranslationException.class));
+        verify(retryRouter).deadLetter(eq(event), isNull(), any(EventTranslationException.class), isNull());
         verifyNoInteractions(useCase);
         verify(processedEvents, never()).tryClaim(any(UUID.class), anyString());
     }
@@ -156,9 +156,9 @@ class ReportCreatedEventConsumerTest {
                 EVENT_ID, OCCURRED_AT, REPORT_ID, "LITTER", "EXTREME", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
 
-        consumer.onReportCreated(event, null);
+        consumer.onReportCreated(event, null, null);
 
-        verify(retryRouter).deadLetter(eq(event), isNull(), any(EventTranslationException.class));
+        verify(retryRouter).deadLetter(eq(event), isNull(), any(EventTranslationException.class), isNull());
         verifyNoInteractions(useCase);
         verify(processedEvents, never()).tryClaim(any(UUID.class), anyString());
     }
@@ -169,11 +169,11 @@ class ReportCreatedEventConsumerTest {
         doThrow(new IllegalStateException("persistence failed"))
                 .when(useCase).execute(any(OpenIncidentCommand.class));
 
-        consumer.onReportCreated(validEvent(), null);
+        consumer.onReportCreated(validEvent(), null, null);
 
         verify(retryRouter).retryOrDeadLetter(eq(validEvent()), isNull(),
-                argThat(cause -> cause.getMessage().contains("persistence failed")));
-        verify(retryRouter, never()).deadLetter(any(), any(), any());
+                argThat(cause -> cause.getMessage().contains("persistence failed")), isNull());
+        verify(retryRouter, never()).deadLetter(any(), any(), any(), any());
     }
 
     @Test
@@ -182,11 +182,11 @@ class ReportCreatedEventConsumerTest {
                 .when(useCase).execute(any(OpenIncidentCommand.class));
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(true);
 
-        consumer.onReportCreated(validEvent(), 1);
+        consumer.onReportCreated(validEvent(), 1, null);
 
         verify(retryRouter).retryOrDeadLetter(eq(validEvent()), eq(1),
-                argThat(cause -> cause.getMessage().contains("mongodb unavailable")));
-        verify(retryRouter, never()).deadLetter(any(), any(), any());
+                argThat(cause -> cause.getMessage().contains("mongodb unavailable")), isNull());
+        verify(retryRouter, never()).deadLetter(any(), any(), any(), any());
     }
 
     @Test
@@ -195,20 +195,21 @@ class ReportCreatedEventConsumerTest {
                 EVENT_ID, OCCURRED_AT, REPORT_ID, "SOMETHING_ELSE", "LOW", null,
                 new ReportCreatedEvent.Location(48.2, 16.4, null));
 
-        consumer.onReportCreated(event, null);
+        consumer.onReportCreated(event, null, null);
 
         verify(retryRouter).deadLetter(eq(event),
                 org.mockito.ArgumentMatchers.isNull(),
-                any(EventTranslationException.class));
+                any(EventTranslationException.class),
+                org.mockito.ArgumentMatchers.isNull());
         verify(retryRouter, never()).retryOrDeadLetter(any(), org.mockito.ArgumentMatchers.any(),
-                any());
+                any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void duplicateSkipIsAcknowledgedSilentlyWithoutRouting() {
         when(processedEvents.tryClaim(any(UUID.class), anyString())).thenReturn(false);
 
-        assertThatCode(() -> consumer.onReportCreated(validEvent(), null))
+        assertThatCode(() -> consumer.onReportCreated(validEvent(), null, null))
                 .doesNotThrowAnyException();
 
         verifyNoInteractions(retryRouter);

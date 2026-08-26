@@ -3,9 +3,11 @@ package com.cbclean.incident.infrastructure.messaging;
 import com.cbclean.incident.application.incident.open.OpenIncidentCommand;
 import com.cbclean.incident.application.incident.open.OpenIncidentUseCase;
 import com.cbclean.incident.application.port.ProcessedEventRecorder;
+import com.cbclean.incident.domain.model.Incident;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
@@ -104,28 +106,45 @@ public class ReportCreatedEventConsumer {
     @RabbitListener(queues = MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE)
     public void onReportCreated(
             ReportCreatedEvent event,
-            @Header(name = MessagingTopology.RETRY_COUNT_HEADER, required = false) Integer previousRetries) {
-        log.debug("Received ReportCreatedEvent [{}] for report [{}] (retry {})",
-                event.eventId(), event.reportId(),
-                previousRetries == null ? 0 : previousRetries);
+            @Header(name = MessagingTopology.RETRY_COUNT_HEADER, required = false) Integer previousRetries,
+            @Header(name = MessagingTopology.CORRELATION_ID_HEADER, required = false) String correlationId) {
         try {
-            process(event);
-        } catch (EventTranslationException poison) {
-            retryRouter.deadLetter(event, previousRetries, poison);
-        } catch (RuntimeException transientFailure) {
-            retryRouter.retryOrDeadLetter(event, previousRetries, transientFailure);
+            // The listener container reuses threads across messages: the MDC is
+            // populated for this delivery only and always cleared in finally,
+            // so no correlation context can leak into the next message.
+            if (correlationId != null && !correlationId.isBlank()) {
+                MDC.put(MessagingTopology.CORRELATION_ID_MDC_KEY, correlationId);
+            }
+            log.info("operation=event-receive result=accepted eventType={} eventId={} reportId={} retry={}",
+                    REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId(),
+                    previousRetries == null ? 0 : previousRetries);
+            try {
+                process(event, correlationId);
+            } catch (EventTranslationException poison) {
+                retryRouter.deadLetter(event, previousRetries, poison, correlationId);
+            } catch (RuntimeException transientFailure) {
+                log.error("operation=event-process result=failed eventType={} eventId={} reportId={}",
+                        REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId(), transientFailure);
+                retryRouter.retryOrDeadLetter(event, previousRetries, transientFailure, correlationId);
+            }
+        } finally {
+            MDC.clear();
         }
     }
 
-    private void process(ReportCreatedEvent event) {
+    private void process(ReportCreatedEvent event, String correlationId) {
         OpenIncidentCommand command = ReportCreatedEventMapper.toCommand(event);
+        log.info("operation=event-map result=mapped eventType={} eventId={} reportId={}",
+                REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
         if (!processedEvents.tryClaim(event.eventId(), REPORT_CREATED_EVENT_TYPE)) {
-            log.info("Ignored duplicate ReportCreatedEvent [{}] for report [{}]",
-                    event.eventId(), event.reportId());
+            log.info("operation=event-deduplicate result=duplicate-ignored eventType={} eventId={} reportId={}",
+                    REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
             return;
         }
-        openIncident.execute(command);
-        log.info("Opened incident from ReportCreatedEvent [{}] for report [{}]",
-                event.eventId(), event.reportId());
+        Incident incident = openIncident.execute(command);
+        log.info("operation=incident-create result=created eventType={} eventId={} reportId={} incidentId={} "
+                        + "correlationId={}",
+                REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId(),
+                incident.id().value(), correlationId);
     }
 }

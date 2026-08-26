@@ -55,7 +55,7 @@ class ReportCreatedEventRetryRouterTest {
     @Test
     void transientFailureBelowLimitRepublishesToNextRetryQueueWithIncrementedCounter() {
         router.retryOrDeadLetter(event, null,
-                new IllegalStateException("mongodb unavailable"));
+                new IllegalStateException("mongodb unavailable"), null);
 
         Message message = sentMessage(MessagingTopology.retryQueue(1));
         assertThat((Integer) message.getMessageProperties()
@@ -64,7 +64,7 @@ class ReportCreatedEventRetryRouterTest {
 
     @Test
     void transientFailureMidChainIncrementsTheExistingRetryCount() {
-        router.retryOrDeadLetter(event, 2, new IllegalStateException("timeout"));
+        router.retryOrDeadLetter(event, 2, new IllegalStateException("timeout"), null);
 
         Message message = sentMessage(MessagingTopology.retryQueue(3));
         assertThat((Integer) message.getMessageProperties()
@@ -73,7 +73,7 @@ class ReportCreatedEventRetryRouterTest {
 
     @Test
     void transientFailureAtTheRetryLimitGoesToTheDlqInsteadOfAnotherRetry() {
-        router.retryOrDeadLetter(event, 3, new IllegalStateException("still failing"));
+        router.retryOrDeadLetter(event, 3, new IllegalStateException("still failing"), null);
 
         Message message = sentMessage(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ);
         assertThat((Integer) message.getMessageProperties()
@@ -82,8 +82,8 @@ class ReportCreatedEventRetryRouterTest {
 
     @Test
     void poisonFailureIsDeadLetteredImmediatelyRegardlessOfRetryCount() {
-        router.retryOrDeadLetter(event, 0, new EventTranslationException("unknown report type"));
-        router.deadLetter(event, 2, new EventTranslationException("unknown priority"));
+        router.retryOrDeadLetter(event, 0, new EventTranslationException("unknown report type"), null);
+        router.deadLetter(event, 2, new EventTranslationException("unknown priority"), null);
 
         sentMessage(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ);
     }
@@ -94,9 +94,45 @@ class ReportCreatedEventRetryRouterTest {
         properties.setDelays(List.of(Duration.ofSeconds(1)));
         properties.validate();
 
-        router.retryOrDeadLetter(event, null, new IllegalStateException("down"));
+        router.retryOrDeadLetter(event, null, new IllegalStateException("down"), null);
 
         sentMessage(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ);
+    }
+
+    @Test
+    void republishedRetryCopyCarriesTheOriginalCorrelationIdHeader() {
+        String correlationId = UUID.randomUUID().toString();
+
+        router.retryOrDeadLetter(event, 0, new IllegalStateException("mongodb unavailable"),
+                correlationId);
+
+        Message message = sentMessage(MessagingTopology.retryQueue(1));
+        Object correlationHeader = message.getMessageProperties()
+                .getHeader(MessagingTopology.CORRELATION_ID_HEADER);
+        assertThat(String.valueOf(correlationHeader)).isEqualTo(correlationId);
+    }
+
+    @Test
+    void deadLetteredCopyCarriesTheOriginalCorrelationIdHeader() {
+        String correlationId = UUID.randomUUID().toString();
+
+        router.deadLetter(event, 0, new EventTranslationException("unknown report type"),
+                correlationId);
+
+        Message message = sentMessage(MessagingTopology.INCIDENT_REPORT_CREATED_DLQ);
+        Object correlationHeader = message.getMessageProperties()
+                .getHeader(MessagingTopology.CORRELATION_ID_HEADER);
+        assertThat(String.valueOf(correlationHeader)).isEqualTo(correlationId);
+    }
+
+    @Test
+    void republishedCopiesOmitTheCorrelationHeaderWhenNoneWasReceived() {
+        router.retryOrDeadLetter(event, 0, new IllegalStateException("mongodb unavailable"), null);
+
+        Message message = sentMessage(MessagingTopology.retryQueue(1));
+        Object correlationHeader = message.getMessageProperties()
+                .getHeader(MessagingTopology.CORRELATION_ID_HEADER);
+        assertThat(correlationHeader).isNull();
     }
 }
 

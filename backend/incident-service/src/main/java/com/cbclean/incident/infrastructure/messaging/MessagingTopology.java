@@ -54,6 +54,12 @@ public class MessagingTopology {
     /** Consumer-managed counter of retries already performed for a message. */
     public static final String RETRY_COUNT_HEADER = "x-retry-count";
 
+    /** Header carrying the correlation ID stamped by the Report Service. */
+    public static final String CORRELATION_ID_HEADER = "correlationId";
+
+    /** SLF4J MDC key under which the correlation ID is exposed to logging. */
+    public static final String CORRELATION_ID_MDC_KEY = "correlationId";
+
     public static String retryQueue(int retryNumber) {
         return INCIDENT_REPORT_CREATED_QUEUE + ".retry." + retryNumber;
     }

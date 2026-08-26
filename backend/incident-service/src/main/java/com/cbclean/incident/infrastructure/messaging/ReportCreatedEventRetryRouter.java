@@ -45,27 +45,31 @@ public class ReportCreatedEventRetryRouter {
      * Handles a transient processing failure: schedules the next retry while
      * any remain, otherwise dead-letters the message.
      */
-    public void retryOrDeadLetter(ReportCreatedEvent event, Integer previousRetries, RuntimeException cause) {
+    public void retryOrDeadLetter(ReportCreatedEvent event,
+                                  Integer previousRetries,
+                                  RuntimeException cause,
+                                  String correlationId) {
         int retriesSoFar = previousRetries == null ? 0 : previousRetries;
         if (retriesSoFar >= retryProperties.getMaxRetries()) {
-            log.error("ReportCreatedEvent [{}] for report [{}] still failing after {} retry attempt(s), "
-                            + "routing to DLQ", event.eventId(), event.reportId(), retriesSoFar, cause);
-            deadLetter(event, retriesSoFar, cause);
+            log.error("operation=event-route result=dead-lettered reason=exhausted eventType={} eventId={} "
+                            + "reportId={} retries={}",
+                    "report.created", event.eventId(), event.reportId(), retriesSoFar, cause);
+            deadLetter(event, retriesSoFar, cause, correlationId);
             return;
         }
         int nextRetry = retriesSoFar + 1;
         String routingKey = MessagingTopology.retryQueue(nextRetry);
         long delayMillis = retryProperties.getDelays().get(retriesSoFar).toMillis();
-        log.warn("Transient failure processing ReportCreatedEvent [{}] for report [{}] "
-                        + "(retry {} of {} in {}ms): {}",
-                event.eventId(), event.reportId(), nextRetry,
-                retryProperties.getMaxRetries(), delayMillis, cause.toString());
+        log.warn("operation=event-retry result=scheduled eventType={} eventId={} reportId={} attempt={} of {} in {}ms",
+                "report.created", event.eventId(), event.reportId(), nextRetry,
+                retryProperties.getMaxRetries(), delayMillis);
         rabbitTemplate.convertAndSend(
                 MessagingTopology.DEAD_LETTER_EXCHANGE,
                 routingKey,
                 event,
                 message -> {
                     message.getMessageProperties().setHeader(MessagingTopology.RETRY_COUNT_HEADER, nextRetry);
+                    stampCorrelationId(message, correlationId);
                     return message;
                 });
     }
@@ -73,10 +77,14 @@ public class ReportCreatedEventRetryRouter {
     /**
      * Routes a permanently unprocessable (poison) message straight to the DLQ.
      */
-    public void deadLetter(ReportCreatedEvent event, Integer previousRetries, RuntimeException cause) {
+    public void deadLetter(ReportCreatedEvent event,
+                           Integer previousRetries,
+                           RuntimeException cause,
+                           String correlationId) {
         int retriesSoFar = previousRetries == null ? 0 : previousRetries;
-        log.error("Poison ReportCreatedEvent [{}] for report [{}] routed to DLQ after {} retry attempt(s)",
-                event.eventId(), event.reportId(), retriesSoFar, cause);
+        log.error("operation=event-route result=dead-lettered reason=poison eventType={} eventId={} reportId={} "
+                        + "retries={}",
+                "report.created", event.eventId(), event.reportId(), retriesSoFar, cause);
         rabbitTemplate.convertAndSend(
                 MessagingTopology.DEAD_LETTER_EXCHANGE,
                 MessagingTopology.INCIDENT_REPORT_CREATED_DLQ,
@@ -84,7 +92,16 @@ public class ReportCreatedEventRetryRouter {
                 message -> {
                     message.getMessageProperties()
                             .setHeader(MessagingTopology.RETRY_COUNT_HEADER, retriesSoFar);
+                    stampCorrelationId(message, correlationId);
                     return message;
                 });
+    }
+
+    private static void stampCorrelationId(org.springframework.amqp.core.Message message,
+                                           String correlationId) {
+        if (correlationId != null && !correlationId.isBlank()) {
+            message.getMessageProperties()
+                    .setHeader(MessagingTopology.CORRELATION_ID_HEADER, correlationId);
+        }
     }
 }
