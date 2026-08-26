@@ -219,6 +219,95 @@ signed tokens with arbitrary roles - no external identity provider is needed.
 The security integration test (`ReportApiSecurityIntegrationTest`) drives the
 complete HTTP security chain against real PostgreSQL and RabbitMQ containers.
 
+## Local Authentication
+
+CBA Clean uses **Keycloak** as the local development Identity Provider. Keycloak
+issues JWT access tokens that the backend validates, providing a complete
+authentication flow for local development.
+
+### Realm
+
+- **Realm name**: `cba-clean`
+- **Realm configuration**: `keycloak/realm/cba-clean-realm.json` (auto-imported on startup)
+
+### Roles
+
+| Role | Description |
+|---|---|
+| `REPORTER` | Create and read reports (POST/GET `/api/v1/reports`) |
+| `OPERATOR` | Operational access (actuator metrics/prometheus, GET reports) |
+
+### Development users
+
+| Username | Password | Role | Purpose |
+|---|---|---|---|
+| `reporter` | `reporter` | `REPORTER` | Can create and read reports |
+| `operator` | `operator` | `OPERATOR` | Can access metrics/prometheus and read reports |
+
+**These credentials are for local development only. Never use them in production.**
+
+### Login flow
+
+1. User clicks "Login" in the Angular app
+2. Angular redirects to Keycloak authorization endpoint (PKCE flow)
+3. User authenticates with Keycloak credentials
+4. Keycloak redirects back with an authorization code
+5. Angular exchanges the code for JWT access tokens
+6. JWT is stored in localStorage and attached to API requests via `Authorization: Bearer` header
+
+### Logout flow
+
+1. User clicks "Logout" in the Angular app
+2. JWT is cleared from localStorage
+3. Angular redirects to Keycloak end-session endpoint
+4. Keycloak session is terminated
+
+### Service configuration
+
+Both services validate JWT tokens issued by Keycloak:
+
+| Environment variable | Docker Compose value | Purpose |
+|---|---|---|
+| `JWT_ISSUER_URI` | `http://keycloak:8080/realms/cba-clean` | Keycloak realm issuer for JWT validation |
+| `JWT_JWK_SET_URI` | *(blank)* | Alternative: direct JWKS endpoint |
+| `JWT_AUDIENCE` | `cba-clean-web` | Expected audience in JWT |
+
+### Angular authentication flow
+
+1. **PKCE**: Authorization Code flow with Proof Key for Code Exchange
+2. **Discovery**: OIDC discovery document loaded from Keycloak
+3. **Token storage**: Access token stored in localStorage (with expiry)
+4. **Token attachment**: `Authorization: Bearer <token>` header added by HTTP interceptor
+5. **Role extraction**: `roles` claim parsed from JWT for UI role checks (backend remains authoritative)
+
+### How to start the stack
+
+```bash
+docker compose up -d --build
+cd frontend/cba-clean-web
+npm install
+npm start
+```
+
+Then open:
+
+- Angular: http://localhost:4200
+- Keycloak: http://localhost:8090 (admin/admin)
+- Report Service: http://localhost:8080
+- Incident Service: http://localhost:8081
+- RabbitMQ: http://localhost:15672
+
+### Reset Keycloak
+
+To reset Keycloak to a clean state:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+The `-v` flag removes the Keycloak data volume, forcing a fresh import of the realm configuration.
+
 ## Running the stack
 
 ```bash
@@ -228,6 +317,7 @@ docker compose up -d --build
 - Report Service API: http://localhost:8080/swagger-ui.html
 - Incident Service health: http://localhost:8081/actuator/health
 - RabbitMQ management UI: http://localhost:15672 (cbaclean/cbaclean)
+- Keycloak Admin Console: http://localhost:8090 (admin/admin)
 
 ## Running the tests
 

@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ReportService } from '../../services/report.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { ErrorService } from '../../../../core/services/error.service';
 import {
   SubmitReportRequest,
@@ -26,6 +27,7 @@ import { ReportLocationMapComponent } from '../../components/report-location-map
 export class ReportFormPageComponent {
   private readonly fb = inject(FormBuilder);
   private readonly reportService = inject(ReportService);
+  private readonly authService = inject(AuthService);
   readonly errorService = inject(ErrorService);
 
   readonly reportTypes = REPORT_TYPE_VALUES;
@@ -33,6 +35,9 @@ export class ReportFormPageComponent {
   readonly submittedReport = signal<ReportResponse | null>(null);
   readonly isSubmitting = signal(false);
   readonly showErrorModal = signal(false);
+
+  readonly isAuthenticated = toSignal(this.authService.isAuthenticated$, { initialValue: false });
+  readonly hasReporterRole = computed(() => this.authService.hasRole('REPORTER'));
 
   readonly currentError = toSignal(this.errorService.error$, { initialValue: null });
   readonly isSubmissionFailure = computed(() => {
@@ -50,6 +55,10 @@ export class ReportFormPageComponent {
     reporterEmail: ['', [Validators.email, Validators.maxLength(200)]],
     reporterPhone: ['', Validators.pattern(/^(\+)?[0-9 ]{6,20}$/)],
   });
+
+  onLogin(): void {
+    this.authService.login();
+  }
 
   onLocationSelected(event: { latitude: number; longitude: number }): void {
     this.reportForm.patchValue({

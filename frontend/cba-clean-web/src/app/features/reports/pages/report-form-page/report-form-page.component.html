@@ -29,129 +29,141 @@
       <button type="button" class="btn" (click)="submittedReport.set(null)">Submit Another</button>
     </div>
   } @else {
-    @if (currentError(); as err) {
-      @if (!isSubmissionFailure()) {
-        <app-error-display [error]="err" />
-      }
-    }
-
-    <form [formGroup]="reportForm" (ngSubmit)="onSubmit()" class="report-form">
-      <fieldset>
-        <legend>Report Details</legend>
-
-        <div class="form-group">
-          <label for="reportType">Report Type *</label>
-          <select id="reportType" formControlName="reportType">
-            <option value="">Select a type...</option>
-            @for (type of reportTypes; track type) {
-              <option [value]="type">{{ reportTypeLabels[type] }}</option>
-            }
-          </select>
-          @if (isFieldInvalid('reportType')) {
-            <span class="field-error">{{ getFieldError('reportType') }}</span>
-          }
-        </div>
-
-        <div class="form-group">
-          <label for="description">Description</label>
-          <textarea
-            id="description"
-            formControlName="description"
-            rows="4"
-            placeholder="Describe the issue..."
-          ></textarea>
-          @if (isFieldInvalid('description')) {
-            <span class="field-error">{{ getFieldError('description') }}</span>
-          }
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Location</legend>
-
-        <app-report-location-map
-          [latitude]="reportForm.get('latitude')?.value || null"
-          [longitude]="reportForm.get('longitude')?.value || null"
-          (locationSelected)="onLocationSelected($event)"
-        />
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="latitude">Latitude *</label>
-            <input
-              id="latitude"
-              type="number"
-              formControlName="latitude"
-              step="any"
-              placeholder="Click on the map or enter manually"
-            />
-            @if (isFieldInvalid('latitude')) {
-              <span class="field-error">{{ getFieldError('latitude') }}</span>
-            }
-          </div>
-
-          <div class="form-group">
-            <label for="longitude">Longitude *</label>
-            <input
-              id="longitude"
-              type="number"
-              formControlName="longitude"
-              step="any"
-              placeholder="Click on the map or enter manually"
-            />
-            @if (isFieldInvalid('longitude')) {
-              <span class="field-error">{{ getFieldError('longitude') }}</span>
-            }
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="address">Address (optional)</label>
-          <input id="address" type="text" formControlName="address" placeholder="Street address..." />
-          @if (isFieldInvalid('address')) {
-            <span class="field-error">{{ getFieldError('address') }}</span>
-          }
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Contact (optional)</legend>
-
-        <div class="form-group">
-          <label for="reporterName">Name</label>
-          <input id="reporterName" type="text" formControlName="reporterName" />
-          @if (isFieldInvalid('reporterName')) {
-            <span class="field-error">{{ getFieldError('reporterName') }}</span>
-          }
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="reporterEmail">Email</label>
-            <input id="reporterEmail" type="email" formControlName="reporterEmail" />
-            @if (isFieldInvalid('reporterEmail')) {
-              <span class="field-error">{{ getFieldError('reporterEmail') }}</span>
-            }
-          </div>
-
-          <div class="form-group">
-            <label for="reporterPhone">Phone</label>
-            <input id="reporterPhone" type="tel" formControlName="reporterPhone" />
-            @if (isFieldInvalid('reporterPhone')) {
-              <span class="field-error">{{ getFieldError('reporterPhone') }}</span>
-            }
-          </div>
-        </div>
-      </fieldset>
-
-      <button type="submit" class="btn btn-primary" [disabled]="isSubmitting()">
-        @if (isSubmitting()) {
-          Submitting...
-        } @else {
-          Submit Report
+    @if (!isAuthenticated()) {
+      <div class="auth-prompt">
+        <p>You need to log in to submit a report.</p>
+        <button type="button" class="btn btn-primary" (click)="onLogin()">Login with Keycloak</button>
+      </div>
+    } @else if (!hasReporterRole()) {
+      <div class="auth-prompt">
+        <p>Your account does not have the required role (REPORTER) to submit reports.</p>
+        <p class="auth-hint">Contact an administrator to request access.</p>
+      </div>
+    } @else {
+      @if (currentError(); as err) {
+        @if (!isSubmissionFailure()) {
+          <app-error-display [error]="err" />
         }
-      </button>
-    </form>
+      }
+
+      <form [formGroup]="reportForm" (ngSubmit)="onSubmit()" class="report-form">
+        <fieldset>
+          <legend>Report Details</legend>
+
+          <div class="form-group">
+            <label for="reportType">Report Type *</label>
+            <select id="reportType" formControlName="reportType">
+              <option value="">Select a type...</option>
+              @for (type of reportTypes; track type) {
+                <option [value]="type">{{ reportTypeLabels[type] }}</option>
+              }
+            </select>
+            @if (isFieldInvalid('reportType')) {
+              <span class="field-error">{{ getFieldError('reportType') }}</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea
+              id="description"
+              formControlName="description"
+              rows="4"
+              placeholder="Describe the issue..."
+            ></textarea>
+            @if (isFieldInvalid('description')) {
+              <span class="field-error">{{ getFieldError('description') }}</span>
+            }
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Location</legend>
+
+          <app-report-location-map
+            [latitude]="reportForm.get('latitude')?.value || null"
+            [longitude]="reportForm.get('longitude')?.value || null"
+            (locationSelected)="onLocationSelected($event)"
+          />
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="latitude">Latitude *</label>
+              <input
+                id="latitude"
+                type="number"
+                formControlName="latitude"
+                step="any"
+                placeholder="Click on the map or enter manually"
+              />
+              @if (isFieldInvalid('latitude')) {
+                <span class="field-error">{{ getFieldError('latitude') }}</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label for="longitude">Longitude *</label>
+              <input
+                id="longitude"
+                type="number"
+                formControlName="longitude"
+                step="any"
+                placeholder="Click on the map or enter manually"
+              />
+              @if (isFieldInvalid('longitude')) {
+                <span class="field-error">{{ getFieldError('longitude') }}</span>
+              }
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="address">Address (optional)</label>
+            <input id="address" type="text" formControlName="address" placeholder="Street address..." />
+            @if (isFieldInvalid('address')) {
+              <span class="field-error">{{ getFieldError('address') }}</span>
+            }
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Contact (optional)</legend>
+
+          <div class="form-group">
+            <label for="reporterName">Name</label>
+            <input id="reporterName" type="text" formControlName="reporterName" />
+            @if (isFieldInvalid('reporterName')) {
+              <span class="field-error">{{ getFieldError('reporterName') }}</span>
+            }
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="reporterEmail">Email</label>
+              <input id="reporterEmail" type="email" formControlName="reporterEmail" />
+              @if (isFieldInvalid('reporterEmail')) {
+                <span class="field-error">{{ getFieldError('reporterEmail') }}</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label for="reporterPhone">Phone</label>
+              <input id="reporterPhone" type="tel" formControlName="reporterPhone" />
+              @if (isFieldInvalid('reporterPhone')) {
+                <span class="field-error">{{ getFieldError('reporterPhone') }}</span>
+              }
+            </div>
+          </div>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting()">
+          @if (isSubmitting()) {
+            Submitting...
+          } @else {
+            Submit Report
+          }
+        </button>
+      </form>
+    }
   }
 </section>
 

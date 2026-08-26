@@ -98,6 +98,26 @@
   }
 }
 
+.auth-prompt {
+  background: #fff3e0;
+  border: 1px solid #ffb74d;
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: center;
+
+  p {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    color: #333;
+  }
+
+  .auth-hint {
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 0;
+  }
+}
+
 .success-panel {
   background: #f1f8e9;
   border: 1px solid #aed581;

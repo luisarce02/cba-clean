@@ -1,6 +1,14 @@
 <header class="app-header">
   <nav>
     <a routerLink="/" class="app-title">CBA Clean</a>
+    <div class="auth-controls">
+      @if (isAuthenticated()) {
+        <span class="user-info">{{ username() }}</span>
+        <button type="button" class="btn btn-logout" (click)="onLogout()">Logout</button>
+      } @else {
+        <button type="button" class="btn btn-login" (click)="onLogin()">Login</button>
+      }
+    </div>
   </nav>
 </header>
 <main>

@@ -37,6 +37,7 @@ spring:
           # even while the issuer is temporarily unreachable). Alternatively
           # point jwk-set-uri directly at a JWKS endpoint.
           issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000}
+          jwk-set-uri: ${JWT_JWK_SET_URI:}
 
 cbaclean:
   security:

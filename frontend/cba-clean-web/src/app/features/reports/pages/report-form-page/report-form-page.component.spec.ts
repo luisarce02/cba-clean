@@ -6,6 +6,8 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { ReportFormPageComponent } from './report-form-page.component';
 import { ReportResponse } from '../../models/report.model';
 import { ErrorService } from '../../../../core/services/error.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import { OidcService } from '../../../../core/services/oidc.service';
 import { HttpErrorResponse } from '@angular/common/http';
 
 vi.mock('leaflet', () => {
@@ -34,11 +36,19 @@ vi.mock('leaflet', () => {
   };
 });
 
+function setupAuthenticatedTestbed(role: string) {
+  const payload = { roles: [role], exp: Math.floor(Date.now() / 1000) + 3600 };
+  const token = `header.${btoa(JSON.stringify(payload))}.sig`;
+  localStorage.setItem('cba_clean_access_token', token);
+  localStorage.setItem('cba_clean_expires_at', String(Date.now() + 3600000));
+}
+
 describe('ReportFormPageComponent', () => {
   let component: ReportFormPageComponent;
   let fixture: ComponentFixture<ReportFormPageComponent>;
   let httpMock: HttpTestingController;
   let errorService: ErrorService;
+  let authService: AuthService;
 
   const mockReportResponse: ReportResponse = {
     id: '7f9c24e8-0b5a-4d1e-9f2a-3c6b8d7e1a45',
@@ -53,32 +63,71 @@ describe('ReportFormPageComponent', () => {
     lastModifiedAt: '2026-08-26T12:00:00Z',
   };
 
+  function createComponent() {
+    fixture = TestBed.createComponent(ReportFormPageComponent);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    errorService = TestBed.inject(ErrorService);
+    authService = TestBed.inject(AuthService);
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+
     await TestBed.configureTestingModule({
       imports: [ReportFormPageComponent, ReactiveFormsModule],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([{ path: '', component: ReportFormPageComponent }]),
+        AuthService,
+        OidcService,
       ],
     }).compileComponents();
-
-    fixture = TestBed.createComponent(ReportFormPageComponent);
-    component = fixture.componentInstance;
-    httpMock = TestBed.inject(HttpTestingController);
-    errorService = TestBed.inject(ErrorService);
-    fixture.detectChanges();
   });
 
   afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
     httpMock.verify();
   });
 
   it('should create', () => {
+    createComponent();
     expect(component).toBeTruthy();
   });
 
+  it('should show login prompt when not authenticated', () => {
+    createComponent();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.auth-prompt')).toBeTruthy();
+    expect(compiled.querySelector('.report-form')).toBeNull();
+  });
+
+  it('should show unauthorized message when authenticated without REPORTER role', () => {
+    setupAuthenticatedTestbed('SOMEONE');
+    createComponent();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const authPrompt = compiled.querySelector('.auth-prompt');
+    expect(authPrompt?.textContent).toContain('does not have the required role');
+    expect(compiled.querySelector('.report-form')).toBeNull();
+  });
+
+  it('should show form when authenticated with REPORTER role', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.report-form')).toBeTruthy();
+    expect(compiled.querySelector('.auth-prompt')).toBeNull();
+  });
+
   it('should have required reportType field', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
     const reportType = component.reportForm.get('reportType');
     expect(reportType).toBeTruthy();
     expect(reportType!.valid).toBe(false);
@@ -86,6 +135,8 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should have required latitude field', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
     const latitude = component.reportForm.get('latitude');
     expect(latitude).toBeTruthy();
     expect(latitude!.valid).toBe(false);
@@ -93,6 +144,8 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should have required longitude field', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
     const longitude = component.reportForm.get('longitude');
     expect(longitude).toBeTruthy();
     expect(longitude!.valid).toBe(false);
@@ -100,11 +153,16 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should mark all fields as touched on invalid submit', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
     component.onSubmit();
     expect(component.reportForm.touched).toBe(true);
   });
 
   it('should submit valid report and update UI', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       description: 'Test description',
@@ -123,6 +181,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should reset form and clear submitted report after submission', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.submittedReport.set(mockReportResponse);
     fixture.detectChanges();
 
@@ -133,6 +194,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should display form validation errors for touched invalid fields', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     const reportType = component.reportForm.get('reportType')!;
     reportType.markAsTouched();
     reportType.markAsDirty();
@@ -143,6 +207,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should disable submit button while submitting', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.isSubmitting.set(true);
     fixture.detectChanges();
 
@@ -151,6 +218,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should update form lat/lng when map emits locationSelected', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.onLocationSelected({ latitude: -17.4, longitude: -66.16 });
 
     expect(component.reportForm.get('latitude')?.value).toBe(-17.4);
@@ -158,11 +228,17 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should render map component in the location fieldset', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     const mapEl = fixture.nativeElement.querySelector('app-report-location-map');
     expect(mapEl).toBeTruthy();
   });
 
   it('should prevent submission when location not selected', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       description: 'Test',
@@ -175,6 +251,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should include location coordinates in POST request', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       latitude: -17.3935,
@@ -190,6 +269,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should reset form fields after successful submission', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       latitude: -17.3935,
@@ -207,6 +289,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should show error modal on network failure', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       latitude: 48.208,
@@ -223,6 +308,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should show error modal on 500 server error', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       latitude: 48.208,
@@ -242,6 +330,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should not show error modal on successful submission', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       latitude: 48.208,
@@ -257,6 +348,9 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should preserve form data after submission failure', () => {
+    setupAuthenticatedTestbed('REPORTER');
+    createComponent();
+
     component.reportForm.patchValue({
       reportType: 'LITTER',
       description: 'Test failure',
@@ -276,6 +370,7 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should close error modal and clear error on closeErrorModal()', () => {
+    createComponent();
     component.showErrorModal.set(true);
 
     component.closeErrorModal();
@@ -284,6 +379,7 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should render error modal when showErrorModal is true', () => {
+    createComponent();
     component.showErrorModal.set(true);
     fixture.detectChanges();
 
@@ -292,6 +388,7 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should classify 400 with field errors as NOT submission failure', () => {
+    createComponent();
     const error = new HttpErrorResponse({
       error: {
         status: 400,
@@ -306,6 +403,7 @@ describe('ReportFormPageComponent', () => {
   });
 
   it('should classify 401 as submission failure', () => {
+    createComponent();
     const error = new HttpErrorResponse({ status: 401 });
     expect(component.isErrorSubmissionFailure(error)).toBe(true);
   });

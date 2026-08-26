@@ -148,41 +148,38 @@ public class ReportServiceSecurityConfig {
             @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:}") String jwkSetUri,
             @Value("${cbaclean.security.jwt.audience:}") String audience) {
 
-        if ((issuerUri == null || issuerUri.isBlank()) && (jwkSetUri == null || jwkSetUri.isBlank())) {
+        boolean hasIssuer = issuerUri != null && !issuerUri.isBlank();
+        boolean hasJwk = jwkSetUri != null && !jwkSetUri.isBlank();
+
+        if (!hasIssuer && !hasJwk) {
             throw new IllegalStateException(
                     "JWT validation is not configured. Set JWT_ISSUER_URI (recommended) or "
                             + "JWT_JWK_SET_URI; refusing to start without any token signature verification.");
         }
-        boolean useIssuer = issuerUri != null && !issuerUri.isBlank();
-        if (useIssuer) {
-            log.info("operation=security-init result=configured mode=issuer-uri");
-        } else {
-            log.info("operation=security-init result=configured mode=jwk-set-uri");
-        }
 
-        // Issuer-based decoders resolve the OIDC discovery document eagerly;
-        // wrap them so the service starts (and keeps serving public endpoints)
-        // even while the issuer is temporarily unreachable.
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
         validators.add(new JwtTimestampValidator());
-        if (useIssuer) {
+        if (hasIssuer) {
             validators.add(new JwtIssuerValidator(issuerUri.trim()));
         }
         if (audience != null && !audience.isBlank()) {
             validators.add(new JwtAudienceValidator(audience.trim()));
         }
+        DelegatingOAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(validators);
 
-        JwtDecoder decoder = useIssuer
-                ? new LazyJwtDecoder(() -> {
-                    NimbusJwtDecoder resolved = NimbusJwtDecoder.withIssuerLocation(issuerUri.trim()).build();
-                    resolved.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
-                    return resolved;
-                })
-                : NimbusJwtDecoder.withJwkSetUri(jwkSetUri.trim()).build();
-        if (!useIssuer) {
-            ((NimbusJwtDecoder) decoder).setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
+        if (hasJwk) {
+            log.info("operation=security-init result=configured mode=jwk-set-uri issuer-validated={}", hasIssuer);
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri.trim()).build();
+            decoder.setJwtValidator(validator);
+            return decoder;
         }
-        return decoder;
+
+        log.info("operation=security-init result=configured mode=issuer-uri");
+        return new LazyJwtDecoder(() -> {
+            NimbusJwtDecoder resolved = NimbusJwtDecoder.withIssuerLocation(issuerUri.trim()).build();
+            resolved.setJwtValidator(validator);
+            return resolved;
+        });
     }
 
     static final String ISSUER_URI_PROPERTY = "spring.security.oauth2.resourceserver.jwt.issuer-uri";
