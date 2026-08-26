@@ -96,4 +96,56 @@ describe('ErrorService', () => {
     service.error$.subscribe((err) => (emittedError = err));
     expect(emittedError).toBeNull();
   });
+
+  it('should return current error value', () => {
+    expect(service.currentError).toBeNull();
+
+    service.handleError(new HttpErrorResponse({ status: 404 }));
+    expect(service.currentError).toBeTruthy();
+    expect(service.currentError!.status).toBe(404);
+  });
+
+  it('should classify network error as submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({ status: 0 }));
+    expect(service.isSubmissionFailure(error)).toBe(true);
+  });
+
+  it('should classify 500 error as submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({ status: 500 }));
+    expect(service.isSubmissionFailure(error)).toBe(true);
+  });
+
+  it('should classify 401 error as submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({ status: 401 }));
+    expect(service.isSubmissionFailure(error)).toBe(true);
+  });
+
+  it('should classify 403 error as submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({ status: 403 }));
+    expect(service.isSubmissionFailure(error)).toBe(true);
+  });
+
+  it('should classify 400 with field errors as NOT submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({
+      error: {
+        status: 400,
+        error: 'Bad Request',
+        message: 'Validation failed',
+        fieldErrors: [{ field: 'reportType', message: 'required' }],
+        timestamp: '2026-08-26T12:00:00Z',
+      },
+      status: 400,
+    }));
+    expect(service.isSubmissionFailure(error)).toBe(false);
+  });
+
+  it('should classify 400 without field errors as submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({ status: 400 }));
+    expect(service.isSubmissionFailure(error)).toBe(true);
+  });
+
+  it('should classify 404 error as submission failure', () => {
+    const error = service.handleError(new HttpErrorResponse({ status: 404 }));
+    expect(service.isSubmissionFailure(error)).toBe(true);
+  });
 });

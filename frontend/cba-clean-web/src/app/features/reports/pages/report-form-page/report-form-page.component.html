@@ -29,7 +29,11 @@
       <button type="button" class="btn" (click)="submittedReport.set(null)">Submit Another</button>
     </div>
   } @else {
-    <app-error-display [error]="(error$ | async) ?? null" />
+    @if (currentError(); as err) {
+      @if (!isSubmissionFailure()) {
+        <app-error-display [error]="err" />
+      }
+    }
 
     <form [formGroup]="reportForm" (ngSubmit)="onSubmit()" class="report-form">
       <fieldset>
@@ -150,3 +154,10 @@
     </form>
   }
 </section>
+
+@if (showErrorModal()) {
+  <app-error-modal
+    [error]="currentError()"
+    (close)="closeErrorModal()"
+  />
+}

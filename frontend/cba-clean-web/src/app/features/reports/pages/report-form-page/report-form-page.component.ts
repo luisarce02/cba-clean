@@ -1,6 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ReportService } from '../../services/report.service';
 import { ErrorService } from '../../../../core/services/error.service';
 import {
@@ -11,25 +13,32 @@ import {
   REPORT_TYPE_VALUES,
 } from '../../models/report.model';
 import { ErrorDisplayComponent } from '../../../../shared/components/error-display/error-display.component';
+import { ErrorModalComponent } from '../../../../shared/components/error-modal/error-modal.component';
 import { ReportLocationMapComponent } from '../../components/report-location-map/report-location-map.component';
 
 @Component({
   selector: 'app-report-form-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ErrorDisplayComponent, ReportLocationMapComponent],
+  imports: [CommonModule, ReactiveFormsModule, ErrorDisplayComponent, ErrorModalComponent, ReportLocationMapComponent],
   templateUrl: './report-form-page.component.html',
   styleUrl: './report-form-page.component.scss',
 })
 export class ReportFormPageComponent {
   private readonly fb = inject(FormBuilder);
   private readonly reportService = inject(ReportService);
-  private readonly errorService = inject(ErrorService);
+  readonly errorService = inject(ErrorService);
 
   readonly reportTypes = REPORT_TYPE_VALUES;
   readonly reportTypeLabels = REPORT_TYPE_LABELS;
   readonly submittedReport = signal<ReportResponse | null>(null);
   readonly isSubmitting = signal(false);
-  readonly error$ = this.errorService.error$;
+  readonly showErrorModal = signal(false);
+
+  readonly currentError = toSignal(this.errorService.error$, { initialValue: null });
+  readonly isSubmissionFailure = computed(() => {
+    const error = this.currentError();
+    return error ? this.errorService.isSubmissionFailure(error) : false;
+  });
 
   readonly reportForm: FormGroup = this.fb.group({
     reportType: ['', Validators.required],
@@ -90,10 +99,36 @@ export class ReportFormPageComponent {
         this.isSubmitting.set(false);
         this.reportForm.reset();
       },
-      error: () => {
+      error: (error: HttpErrorResponse) => {
         this.isSubmitting.set(false);
+        if (this.isErrorSubmissionFailure(error)) {
+          this.showErrorModal.set(true);
+        }
       },
     });
+  }
+
+  closeErrorModal(): void {
+    this.showErrorModal.set(false);
+    this.errorService.clearError();
+  }
+
+  isErrorSubmissionFailure(error: HttpErrorResponse): boolean {
+    if (error.status === 0) {
+      return true;
+    }
+    if (error.status === 400) {
+      const body = error.error;
+      if (typeof body === 'object' && body !== null
+          && Array.isArray(body.fieldErrors) && body.fieldErrors.length > 0) {
+        return false;
+      }
+      return true;
+    }
+    if (error.status >= 401) {
+      return true;
+    }
+    return false;
   }
 
   isFieldInvalid(fieldName: string): boolean {

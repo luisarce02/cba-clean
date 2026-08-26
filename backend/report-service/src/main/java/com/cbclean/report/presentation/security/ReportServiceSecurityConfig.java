@@ -17,6 +17,9 @@ import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,8 +49,9 @@ import java.util.List;
  * are not exposed at all ({@code management.endpoints.web.exposure.include}).</p>
  *
  * <p>Stateless: CSRF is disabled (Bearer tokens only), sessions are never
- * created, and CORS stays disabled until the Angular frontend defines real
- * origins.</p>
+ * created, and CORS is configured via {@code cbaclean.cors.allowed-origins}
+ * to support the Angular development frontend while keeping production
+ * locked down.</p>
  */
 @Configuration
 @EnableWebSecurity
@@ -58,20 +62,23 @@ public class ReportServiceSecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final RolesClaimAuthenticationConverter rolesConverter;
+    private final List<String> allowedOrigins;
 
     public ReportServiceSecurityConfig(RestAuthenticationEntryPoint authenticationEntryPoint,
                                        RestAccessDeniedHandler accessDeniedHandler,
-                                       RolesClaimAuthenticationConverter rolesConverter) {
+                                       RolesClaimAuthenticationConverter rolesConverter,
+                                       @Value("${cbaclean.cors.allowed-origins:}") List<String> allowedOrigins) {
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
         this.rolesConverter = rolesConverter;
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
     public SecurityFilterChain reportServiceSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Error/error-page dispatches must reach /error so that
@@ -97,6 +104,28 @@ public class ReportServiceSecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler));
         return http.build();
+    }
+
+    private CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        List<String> origins = allowedOrigins.stream()
+                .filter(o -> o != null && !o.isBlank())
+                .toList();
+        if (origins.isEmpty()) {
+            log.info("operation=cors-init result=no-allowed-origins");
+        } else {
+            config.setAllowedOrigins(origins);
+            log.info("operation=cors-init result=configured origins={}", origins);
+        }
+        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-ID"));
+        config.setExposedHeaders(List.of("X-Correlation-ID"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     /**

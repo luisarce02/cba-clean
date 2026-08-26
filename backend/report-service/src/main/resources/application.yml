@@ -43,6 +43,10 @@ cbaclean:
     jwt:
       # Optional audience validation; blank disables the aud check.
       audience: ${JWT_AUDIENCE:}
+  cors:
+    # Comma-separated list of allowed origins for CORS.
+    # Empty in production; set to http://localhost:4200 for Angular dev.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   outbox:
     poll-interval: ${OUTBOX_POLL_INTERVAL:PT5S}
     batch-size: ${OUTBOX_BATCH_SIZE:20}
