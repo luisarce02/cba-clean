@@ -1,5 +1,6 @@
 package com.cbclean.incident.infrastructure.messaging;
 
+import com.cbclean.incident.infrastructure.metrics.IncidentMetrics;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +35,14 @@ public class ReportCreatedEventRetryRouter {
 
     private final RabbitTemplate rabbitTemplate;
     private final IncidentMessagingRetryProperties retryProperties;
+    private final IncidentMetrics metrics;
 
     public ReportCreatedEventRetryRouter(RabbitTemplate rabbitTemplate,
-                                         IncidentMessagingRetryProperties retryProperties) {
+                                         IncidentMessagingRetryProperties retryProperties,
+                                         IncidentMetrics metrics) {
         this.rabbitTemplate = rabbitTemplate;
         this.retryProperties = retryProperties;
+        this.metrics = metrics;
     }
 
     /**
@@ -54,12 +58,14 @@ public class ReportCreatedEventRetryRouter {
             log.error("operation=event-route result=dead-lettered reason=exhausted eventType={} eventId={} "
                             + "reportId={} retries={}",
                     "report.created", event.eventId(), event.reportId(), retriesSoFar, cause);
-            deadLetter(event, retriesSoFar, cause, correlationId);
+            routeToDeadLetter(event, retriesSoFar, cause, correlationId,
+                    IncidentMetrics.REASON_RETRY_EXHAUSTED);
             return;
         }
         int nextRetry = retriesSoFar + 1;
         String routingKey = MessagingTopology.retryQueue(nextRetry);
         long delayMillis = retryProperties.getDelays().get(retriesSoFar).toMillis();
+        metrics.retryScheduled("report.created");
         log.warn("operation=event-retry result=scheduled eventType={} eventId={} reportId={} attempt={} of {} in {}ms",
                 "report.created", event.eventId(), event.reportId(), nextRetry,
                 retryProperties.getMaxRetries(), delayMillis);
@@ -81,10 +87,19 @@ public class ReportCreatedEventRetryRouter {
                            Integer previousRetries,
                            RuntimeException cause,
                            String correlationId) {
-        int retriesSoFar = previousRetries == null ? 0 : previousRetries;
-        log.error("operation=event-route result=dead-lettered reason=poison eventType={} eventId={} reportId={} "
+        routeToDeadLetter(event, previousRetries == null ? 0 : previousRetries, cause, correlationId,
+                IncidentMetrics.REASON_TRANSLATION_FAILURE);
+    }
+
+    private void routeToDeadLetter(ReportCreatedEvent event,
+                                   int retriesSoFar,
+                                   RuntimeException cause,
+                                   String correlationId,
+                                   String reason) {
+        log.error("operation=event-route result=dead-lettered reason={} eventType={} eventId={} reportId={} "
                         + "retries={}",
-                "report.created", event.eventId(), event.reportId(), retriesSoFar, cause);
+                reason, "report.created", event.eventId(), event.reportId(), retriesSoFar, cause);
+        metrics.deadLettered("report.created", reason);
         rabbitTemplate.convertAndSend(
                 MessagingTopology.DEAD_LETTER_EXCHANGE,
                 MessagingTopology.INCIDENT_REPORT_CREATED_DLQ,

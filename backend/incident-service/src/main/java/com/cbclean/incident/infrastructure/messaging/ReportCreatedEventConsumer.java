@@ -4,6 +4,7 @@ import com.cbclean.incident.application.incident.open.OpenIncidentCommand;
 import com.cbclean.incident.application.incident.open.OpenIncidentUseCase;
 import com.cbclean.incident.application.port.ProcessedEventRecorder;
 import com.cbclean.incident.domain.model.Incident;
+import com.cbclean.incident.infrastructure.metrics.IncidentMetrics;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,13 +95,16 @@ public class ReportCreatedEventConsumer {
     private final OpenIncidentUseCase openIncident;
     private final ProcessedEventRecorder processedEvents;
     private final ReportCreatedEventRetryRouter retryRouter;
+    private final IncidentMetrics metrics;
 
     public ReportCreatedEventConsumer(OpenIncidentUseCase openIncident,
                                       ProcessedEventRecorder processedEvents,
-                                      ReportCreatedEventRetryRouter retryRouter) {
+                                      ReportCreatedEventRetryRouter retryRouter,
+                                      IncidentMetrics metrics) {
         this.openIncident = openIncident;
         this.processedEvents = processedEvents;
         this.retryRouter = retryRouter;
+        this.metrics = metrics;
     }
 
     @RabbitListener(queues = MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE)
@@ -118,11 +122,16 @@ public class ReportCreatedEventConsumer {
             log.info("operation=event-receive result=accepted eventType={} eventId={} reportId={} retry={}",
                     REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId(),
                     previousRetries == null ? 0 : previousRetries);
+
+            IncidentMetrics.ProcessingTimer processingTime = metrics.startProcessingTimer();
             try {
                 process(event, correlationId);
+                processingTime.success(REPORT_CREATED_EVENT_TYPE);
             } catch (EventTranslationException poison) {
+                processingTime.failure(REPORT_CREATED_EVENT_TYPE);
                 retryRouter.deadLetter(event, previousRetries, poison, correlationId);
             } catch (RuntimeException transientFailure) {
+                processingTime.failure(REPORT_CREATED_EVENT_TYPE);
                 log.error("operation=event-process result=failed eventType={} eventId={} reportId={}",
                         REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId(), transientFailure);
                 retryRouter.retryOrDeadLetter(event, previousRetries, transientFailure, correlationId);
@@ -137,11 +146,20 @@ public class ReportCreatedEventConsumer {
         log.info("operation=event-map result=mapped eventType={} eventId={} reportId={}",
                 REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
         if (!processedEvents.tryClaim(event.eventId(), REPORT_CREATED_EVENT_TYPE)) {
+            metrics.duplicateDetected(REPORT_CREATED_EVENT_TYPE);
             log.info("operation=event-deduplicate result=duplicate-ignored eventType={} eventId={} reportId={}",
                     REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
             return;
         }
-        Incident incident = openIncident.execute(command);
+        Incident incident;
+        try {
+            incident = openIncident.execute(command);
+        } catch (RuntimeException creationFailure) {
+            metrics.incidentFailed();
+            throw creationFailure;
+        }
+        metrics.incidentCreated();
+        metrics.eventProcessed(REPORT_CREATED_EVENT_TYPE);
         log.info("operation=incident-create result=created eventType={} eventId={} reportId={} incidentId={} "
                         + "correlationId={}",
                 REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId(),

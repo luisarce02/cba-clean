@@ -3,6 +3,7 @@ package com.cbclean.incident.infrastructure.messaging;
 import com.cbclean.incident.application.incident.open.OpenIncidentCommand;
 import com.cbclean.incident.application.incident.open.OpenIncidentUseCase;
 import com.cbclean.incident.application.port.ProcessedEventRecorder;
+import com.cbclean.incident.infrastructure.metrics.IncidentMetrics;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +36,7 @@ class ReportCreatedEventConsumerCorrelationTest {
     private final ProcessedEventRecorder processedEvents = mock(ProcessedEventRecorder.class);
     private final ReportCreatedEventRetryRouter retryRouter = mock(ReportCreatedEventRetryRouter.class);
     private final ReportCreatedEventConsumer consumer =
-            new ReportCreatedEventConsumer(useCase, processedEvents, retryRouter);
+            new ReportCreatedEventConsumer(useCase, processedEvents, retryRouter, IncidentMetrics.noop());
 
     @BeforeEach
     @AfterEach

@@ -1,6 +1,7 @@
 package com.cbclean.report.config;
 
 import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.port.ReportMetrics;
 import com.cbclean.report.application.report.get.GetReportUseCase;
 import com.cbclean.report.application.report.submit.SubmitReportUseCase;
 import com.cbclean.report.domain.repository.ReportRepository;
@@ -24,8 +25,8 @@ public class ApplicationConfig {
 
     @Bean
     public SubmitReportUseCase submitReportUseCase(
-            ReportRepository reports, ReportEventPublisher events, Clock clock) {
-        return new SubmitReportUseCase(reports, events, clock);
+            ReportRepository reports, ReportEventPublisher events, Clock clock, ReportMetrics metrics) {
+        return new SubmitReportUseCase(reports, events, clock, metrics);
     }
 
     @Bean
