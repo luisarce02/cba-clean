@@ -6,6 +6,32 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { ReportFormPageComponent } from './report-form-page.component';
 import { ReportResponse } from '../../models/report.model';
 
+vi.mock('leaflet', () => {
+  const onHandlers: Record<string, Function[]> = {};
+  const mockMap = {
+    on: vi.fn((event: string, handler: Function) => {
+      if (!onHandlers[event]) onHandlers[event] = [];
+      onHandlers[event].push(handler);
+    }),
+    setView: vi.fn(),
+    removeLayer: vi.fn(),
+    remove: vi.fn(),
+    getZoom: vi.fn(() => 13),
+  };
+  return {
+    default: {
+      map: vi.fn(() => mockMap),
+      tileLayer: vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })),
+      marker: vi.fn(() => ({ setLatLng: vi.fn(), addTo: vi.fn().mockReturnThis() })),
+      Icon: { Default: { imagePath: '' } },
+    },
+    map: vi.fn(() => mockMap),
+    tileLayer: vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })),
+    marker: vi.fn(() => ({ setLatLng: vi.fn(), addTo: vi.fn().mockReturnThis() })),
+    Icon: { Default: { imagePath: '' } },
+  };
+});
+
 describe('ReportFormPageComponent', () => {
   let component: ReportFormPageComponent;
   let fixture: ComponentFixture<ReportFormPageComponent>;
@@ -118,5 +144,61 @@ describe('ReportFormPageComponent', () => {
 
     const submitBtn = fixture.nativeElement.querySelector('.btn-primary');
     expect(submitBtn.disabled).toBe(true);
+  });
+
+  it('should update form lat/lng when map emits locationSelected', () => {
+    component.onLocationSelected({ latitude: -17.4, longitude: -66.16 });
+
+    expect(component.reportForm.get('latitude')?.value).toBe(-17.4);
+    expect(component.reportForm.get('longitude')?.value).toBe(-66.16);
+  });
+
+  it('should render map component in the location fieldset', () => {
+    const mapEl = fixture.nativeElement.querySelector('app-report-location-map');
+    expect(mapEl).toBeTruthy();
+  });
+
+  it('should prevent submission when location not selected', () => {
+    component.reportForm.patchValue({
+      reportType: 'LITTER',
+      description: 'Test',
+    });
+
+    component.onSubmit();
+
+    expect(component.reportForm.get('latitude')?.valid).toBe(false);
+    expect(component.isSubmitting()).toBe(false);
+  });
+
+  it('should include location coordinates in POST request', () => {
+    component.reportForm.patchValue({
+      reportType: 'LITTER',
+      latitude: -17.3935,
+      longitude: -66.157,
+    });
+
+    component.onSubmit();
+
+    const req = httpMock.expectOne('http://localhost:8080/api/v1/reports');
+    expect(req.request.body.location.latitude).toBe(-17.3935);
+    expect(req.request.body.location.longitude).toBe(-66.157);
+    req.flush(mockReportResponse);
+  });
+
+  it('should reset form fields after successful submission', () => {
+    component.reportForm.patchValue({
+      reportType: 'LITTER',
+      latitude: -17.3935,
+      longitude: -66.157,
+    });
+
+    component.onSubmit();
+
+    const req = httpMock.expectOne('http://localhost:8080/api/v1/reports');
+    req.flush(mockReportResponse);
+
+    expect(component.reportForm.get('latitude')?.value).toBeNull();
+    expect(component.reportForm.get('longitude')?.value).toBeNull();
+    expect(component.reportForm.get('reportType')?.value).toBeNull();
   });
 });

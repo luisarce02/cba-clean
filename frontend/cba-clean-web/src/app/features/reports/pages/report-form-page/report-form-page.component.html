@@ -65,6 +65,12 @@
       <fieldset>
         <legend>Location</legend>
 
+        <app-report-location-map
+          [latitude]="reportForm.get('latitude')?.value || null"
+          [longitude]="reportForm.get('longitude')?.value || null"
+          (locationSelected)="onLocationSelected($event)"
+        />
+
         <div class="form-row">
           <div class="form-group">
             <label for="latitude">Latitude *</label>
@@ -73,7 +79,7 @@
               type="number"
               formControlName="latitude"
               step="any"
-              placeholder="e.g. 48.2084"
+              placeholder="Click on the map or enter manually"
             />
             @if (isFieldInvalid('latitude')) {
               <span class="field-error">{{ getFieldError('latitude') }}</span>
@@ -87,7 +93,7 @@
               type="number"
               formControlName="longitude"
               step="any"
-              placeholder="e.g. 16.3721"
+              placeholder="Click on the map or enter manually"
             />
             @if (isFieldInvalid('longitude')) {
               <span class="field-error">{{ getFieldError('longitude') }}</span>
