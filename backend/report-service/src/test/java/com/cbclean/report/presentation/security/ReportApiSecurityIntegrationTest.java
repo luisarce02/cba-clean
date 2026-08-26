@@ -41,7 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "spring.main.allow-bean-definition-overriding=true",
-                "cbaclean.outbox.poll-interval=PT1H"
+                "cbaclean.outbox.poll-interval=PT1H",
+                "cbaclean.cors.allowed-origins=http://localhost:4200"
         })
 @AutoConfigureObservability
 @Testcontainers
@@ -280,6 +281,93 @@ class ReportApiSecurityIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CREATED);
         assertThat(response.getHeaders().getFirst("X-Correlation-ID")).isEqualTo("e2e-auth-correlation-42");
+    }
+
+    @Test
+    void optionsPreflightFromAngularDevOriginReturns200() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Origin", "http://localhost:4200");
+        headers.set("Access-Control-Request-Method", "POST");
+        headers.set("Access-Control-Request-Headers", "Authorization,Content-Type,X-Correlation-ID");
+
+        ResponseEntity<String> response = rest.exchange(
+                localPortBase() + "/api/v1/reports",
+                HttpMethod.OPTIONS,
+                new HttpEntity<>(null, headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.OK);
+    }
+
+    @Test
+    void corsResponseContainsCorrectAllowOriginHeader() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Origin", "http://localhost:4200");
+        headers.set("Access-Control-Request-Method", "POST");
+        headers.set("Access-Control-Request-Headers", "Authorization,Content-Type,X-Correlation-ID");
+
+        ResponseEntity<String> response = rest.exchange(
+                localPortBase() + "/api/v1/reports",
+                HttpMethod.OPTIONS,
+                new HttpEntity<>(null, headers),
+                String.class);
+
+        assertThat(response.getHeaders().getFirst("Access-Control-Allow-Origin"))
+                .isEqualTo("http://localhost:4200");
+    }
+
+    @Test
+    void corsResponseContainsRequiredAllowedHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Origin", "http://localhost:4200");
+        headers.set("Access-Control-Request-Method", "POST");
+        headers.set("Access-Control-Request-Headers", "Authorization,Content-Type,X-Correlation-ID");
+
+        ResponseEntity<String> response = rest.exchange(
+                localPortBase() + "/api/v1/reports",
+                HttpMethod.OPTIONS,
+                new HttpEntity<>(null, headers),
+                String.class);
+
+        assertThat(response.getHeaders().getFirst("Access-Control-Allow-Headers"))
+                .contains("Authorization")
+                .contains("Content-Type")
+                .contains("X-Correlation-ID");
+    }
+
+    @Test
+    void corsResponseExposesCorrelationIdHeader() {
+        String reporter = TestJwts.token("citizen-jane", List.of("REPORTER"));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Origin", "http://localhost:4200");
+        headers.set("X-Correlation-ID", "cors-test-123");
+        headers.setBearerAuth(reporter);
+
+        ResponseEntity<String> response = rest.exchange(
+                localPortBase() + "/api/v1/reports",
+                HttpMethod.POST,
+                new HttpEntity<>(VALID_BODY, headers),
+                String.class);
+
+        assertThat(response.getHeaders().getFirst("Access-Control-Expose-Headers"))
+                .contains("X-Correlation-ID");
+    }
+
+    @Test
+    void authenticatedPostStillRequiresJwt() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Origin", "http://localhost:4200");
+
+        ResponseEntity<String> response = rest.exchange(
+                localPortBase() + "/api/v1/reports",
+                HttpMethod.POST,
+                new HttpEntity<>(VALID_BODY, headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
     }
 
     @Test

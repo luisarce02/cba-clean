@@ -19,6 +19,17 @@ export class ErrorService {
     this.currentError$.next(null);
   }
 
+  get currentError(): ApiErrorResponse | null {
+    return this.currentError$.value;
+  }
+
+  isSubmissionFailure(error: ApiErrorResponse): boolean {
+    if (error.status === 400 && error.fieldErrors && error.fieldErrors.length > 0) {
+      return false;
+    }
+    return true;
+  }
+
   private mapToApiError(error: HttpErrorResponse): ApiErrorResponse {
     const body = error.error;
 

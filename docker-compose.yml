@@ -49,6 +49,7 @@ services:
       JWT_ISSUER_URI: ${JWT_ISSUER_URI:-http://localhost:9000}
       JWT_JWK_SET_URI: ${JWT_JWK_SET_URI:-}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
     ports:
       - "8080:8080"
     depends_on:
