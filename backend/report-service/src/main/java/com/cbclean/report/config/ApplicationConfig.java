@@ -1,17 +1,20 @@
 package com.cbclean.report.config;
 
-import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.port.OutboxStore;
 import com.cbclean.report.application.port.ReportMetrics;
+import com.cbclean.report.application.port.UnitOfWork;
 import com.cbclean.report.application.report.get.GetReportUseCase;
 import com.cbclean.report.application.report.submit.SubmitReportUseCase;
 import com.cbclean.report.domain.repository.ReportRepository;
+import com.cbclean.report.infrastructure.transaction.SpringUnitOfWork;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.Clock;
 
 /**
- * Composition root: wires the application use case to its ports using the
+ * Composition root: wires the application use cases to their ports using the
  * infrastructure adapters. Keeps application and domain layers free of
  * Spring annotations.
  */
@@ -24,9 +27,15 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public UnitOfWork unitOfWork(PlatformTransactionManager transactionManager) {
+        return new SpringUnitOfWork(transactionManager);
+    }
+
+    @Bean
     public SubmitReportUseCase submitReportUseCase(
-            ReportRepository reports, ReportEventPublisher events, Clock clock, ReportMetrics metrics) {
-        return new SubmitReportUseCase(reports, events, clock, metrics);
+            ReportRepository reports, OutboxStore outbox, UnitOfWork unitOfWork,
+            Clock clock, ReportMetrics metrics) {
+        return new SubmitReportUseCase(reports, outbox, unitOfWork, clock, metrics);
     }
 
     @Bean

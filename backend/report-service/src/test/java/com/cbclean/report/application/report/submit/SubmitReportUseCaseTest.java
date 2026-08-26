@@ -1,7 +1,10 @@
 package com.cbclean.report.application.report.submit;
 
-import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.correlation.CorrelationContext;
+import com.cbclean.report.application.outbox.OutboxEntry;
+import com.cbclean.report.application.port.OutboxStore;
 import com.cbclean.report.application.port.ReportMetrics;
+import com.cbclean.report.application.port.UnitOfWork;
 import com.cbclean.report.domain.model.GeoLocation;
 import com.cbclean.report.domain.model.InvalidReportException;
 import com.cbclean.report.domain.model.Report;
@@ -11,14 +14,17 @@ import com.cbclean.report.domain.repository.ReportRepository;
 import com.cbclean.report.domain.model.ReportType;
 import com.cbclean.report.domain.model.Reporter;
 import com.cbclean.report.integration.event.ReportCreatedEvent;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.slf4j.MDC;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,12 +40,17 @@ class SubmitReportUseCaseTest {
     private static final Instant NOW = Instant.parse("2026-08-25T10:00:00Z");
 
     private final ReportRepository repository = mock(ReportRepository.class);
-    private final ReportEventPublisher events = mock(ReportEventPublisher.class);
-    private final SubmitReportUseCase useCase =
-            new SubmitReportUseCase(repository, events, Clock.fixed(NOW, ZoneOffset.UTC), ReportMetrics.noop());
+    private final OutboxStore outbox = mock(OutboxStore.class);
+    private final SubmitReportUseCase useCase = new SubmitReportUseCase(
+            repository, outbox, UnitOfWork.identity(), Clock.fixed(NOW, ZoneOffset.UTC), ReportMetrics.noop());
+
+    @AfterEach
+    void clearCorrelationContext() {
+        MDC.clear();
+    }
 
     @Test
-    void validSubmissionCreatesSavesAndReturnsReport() {
+    void validSubmissionSavesAndReturnsReport() {
         SubmitReportCommand command = new SubmitReportCommand(
                 ReportType.ILLEGAL_DUMPING,
                 "  Waste dumped next to the river  ",
@@ -90,7 +101,7 @@ class SubmitReportUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(InvalidReportException.class)
                 .hasMessageContaining("type is required");
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, outbox);
     }
 
     @Test
@@ -101,7 +112,7 @@ class SubmitReportUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(InvalidReportException.class)
                 .hasMessageContaining("location is required");
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, outbox);
     }
 
     @Test
@@ -110,7 +121,7 @@ class SubmitReportUseCaseTest {
                 new Reporter("Jane", "not-an-email", null))))
                 .isInstanceOf(InvalidReportException.class)
                 .hasMessageContaining("email");
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, outbox);
     }
 
     @Test
@@ -118,83 +129,82 @@ class SubmitReportUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(commandWithPhotoIds(List.of("", " "))))
                 .isInstanceOf(InvalidReportException.class)
                 .hasMessageContaining("Photo ids");
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, outbox);
     }
 
     @Test
-    void validSubmissionPublishesEventAfterSuccessfulPersistence() {
+    void validSubmissionAppendsTheOutboxEntryAfterSuccessfulPersistence() {
         useCase.execute(validCommand());
 
-        InOrder inOrder = inOrder(repository, events);
+        InOrder inOrder = inOrder(repository, outbox);
         inOrder.verify(repository).save(any(Report.class));
-        inOrder.verify(events).publishReportCreated(any(ReportCreatedEvent.class));
+        inOrder.verify(outbox).append(any(OutboxEntry.class));
     }
 
     @Test
-    void publishedEventCarriesThePersistedReportId() {
+    void outboxEntryCarriesAReportCreatedEventForThePersistedReport() {
         Report saved = useCase.execute(validCommand());
 
-        ArgumentCaptor<ReportCreatedEvent> event =
-                ArgumentCaptor.forClass(ReportCreatedEvent.class);
-        verify(events).publishReportCreated(event.capture());
-        assertThat(event.getValue().reportId()).isEqualTo(saved.id().value());
+        OutboxEntry entry = capturedEntry();
+        assertThat(entry.eventType()).isEqualTo("report.created");
+        assertThat(entry.aggregateType()).isEqualTo("report");
+        assertThat(entry.aggregateId()).isEqualTo(saved.id().value());
+        assertThat(entry.payload().reportId()).isEqualTo(saved.id().value());
+        assertThat(entry.payload().reportType()).isEqualTo(ReportType.ILLEGAL_DUMPING.name());
+        assertThat(entry.payload().priority()).isEqualTo(ReportPriority.NORMAL.name());
+        assertThat(entry.payload().description()).isEqualTo("Waste dumped next to the river");
     }
 
     @Test
-    void publishedEventMapsDomainEnumsToStringRepresentations() {
-        useCase.execute(new SubmitReportCommand(
-                ReportType.OVERFLOWING_BIN,
-                "Bin overflowing on the corner",
-                GeoLocation.of(48.2082, 16.3738),
-                null,
-                List.of()));
+    void outboxEventIdEqualsTheIntegrationEventIdentity() {
+        useCase.execute(validCommand());
 
-        ArgumentCaptor<ReportCreatedEvent> event =
-                ArgumentCaptor.forClass(ReportCreatedEvent.class);
-        verify(events).publishReportCreated(event.capture());
-
-        ReportCreatedEvent published = event.getValue();
-        assertThat(published.reportType())
-                .isEqualTo(ReportType.OVERFLOWING_BIN.name())
-                .isEqualTo("OVERFLOWING_BIN");
-        assertThat(published.priority())
-                .isEqualTo(ReportPriority.NORMAL.name())
-                .isEqualTo("NORMAL");
+        OutboxEntry entry = capturedEntry();
+        assertThat(entry.eventId()).isEqualTo(entry.payload().eventId());
+        assertThat(entry.occurredAt()).isEqualTo(entry.payload().occurredAt());
     }
 
     @Test
-    void publishedEventContainsTheReportLocation() {
+    void outboxEntryContainsTheReportLocation() {
         GeoLocation location = new GeoLocation(48.2082, 16.3738, "  Main Street 1  ");
 
         useCase.execute(new SubmitReportCommand(
                 ReportType.LITTER, null, location, null, null));
 
-        ArgumentCaptor<ReportCreatedEvent> event =
-                ArgumentCaptor.forClass(ReportCreatedEvent.class);
-        verify(events).publishReportCreated(event.capture());
-
-        ReportCreatedEvent.Location publishedLocation = event.getValue().location();
+        ReportCreatedEvent.Location publishedLocation = capturedEntry().payload().location();
         assertThat(publishedLocation.latitude()).isEqualTo(location.latitude());
         assertThat(publishedLocation.longitude()).isEqualTo(location.longitude());
         assertThat(publishedLocation.address()).isEqualTo("Main Street 1");
     }
 
     @Test
-    void publishedEventContainsIdentityAndTimestamps() {
+    void outboxEntryContainsIdentityAndTimestamps() {
         useCase.execute(validCommand());
 
-        ArgumentCaptor<ReportCreatedEvent> event =
-                ArgumentCaptor.forClass(ReportCreatedEvent.class);
-        verify(events).publishReportCreated(event.capture());
-
-        ReportCreatedEvent published = event.getValue();
-        assertThat(published.eventId()).isNotNull();
-        assertThat(published.occurredAt()).isEqualTo(NOW);
-        assertThat(published.description()).isEqualTo("Waste dumped next to the river");
+        ReportCreatedEvent payload = capturedEntry().payload();
+        assertThat(payload.eventId()).isNotNull();
+        assertThat(payload.occurredAt()).isEqualTo(NOW);
     }
 
     @Test
-    void invalidSubmissionsDoNotPublishAnyEvent() {
+    void correlationIdFromTheLoggingContextIsPreservedInTheOutboxEntry() {
+        String correlationId = UUID.randomUUID().toString();
+        MDC.put(CorrelationContext.MDC_KEY, correlationId);
+
+        useCase.execute(validCommand());
+
+        assertThat(capturedEntry().correlationId()).isEqualTo(correlationId);
+    }
+
+    @Test
+    void withoutACorrelationContextTheOutboxEntryCarriesNone() {
+        useCase.execute(validCommand());
+
+        assertThat(capturedEntry().correlationId()).isNull();
+    }
+
+    @Test
+    void invalidSubmissionsDoNotAppendAnyOutboxEntry() {
         SubmitReportCommand missingType = new SubmitReportCommand(
                 null, null, GeoLocation.of(48.2082, 16.3738), null, null);
         SubmitReportCommand missingLocation = new SubmitReportCommand(
@@ -208,11 +218,11 @@ class SubmitReportUseCaseTest {
                 new Reporter("Jane", "not-an-email", null))))
                 .isInstanceOf(InvalidReportException.class);
 
-        verifyNoInteractions(repository, events);
+        verifyNoInteractions(repository, outbox);
     }
 
     @Test
-    void repositoryFailureDoesNotPublishAnEvent() {
+    void repositoryFailureDoesNotAppendAnOutboxEntry() {
         doThrow(new IllegalStateException("database unavailable"))
                 .when(repository).save(any(Report.class));
 
@@ -220,7 +230,28 @@ class SubmitReportUseCaseTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("database unavailable");
 
-        verifyNoInteractions(events);
+        verifyNoInteractions(outbox);
+    }
+
+    @Test
+    void outboxFailureFailsTheSubmissionSoNoPartialStateRemains() {
+        doThrow(new IllegalStateException("outbox insert failed"))
+                .when(outbox).append(any(OutboxEntry.class));
+
+        // In production both operations run inside one transaction; the unit
+        // of work therefore rolls the report back as well (verified by the
+        // PostgreSQL integration tests).
+        assertThatThrownBy(() -> useCase.execute(validCommand()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("outbox insert failed");
+
+        verify(repository).save(any(Report.class));
+    }
+
+    private OutboxEntry capturedEntry() {
+        ArgumentCaptor<OutboxEntry> entry = ArgumentCaptor.forClass(OutboxEntry.class);
+        verify(outbox).append(entry.capture());
+        return entry.getValue();
     }
 
     private SubmitReportCommand validCommand() {

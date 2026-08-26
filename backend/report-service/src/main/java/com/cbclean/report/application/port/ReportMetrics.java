@@ -14,10 +14,11 @@ import java.util.function.Supplier;
  *
  * <p>Metric semantics:</p>
  * <ul>
- *   <li>{@code reportCreated} - after the report was successfully persisted.</li>
- *   <li>{@code reportFailed} - when submission fails before persistence
- *   (validation, persistence errors). Publication failures are counted
- *   separately via {@code eventPublishFailed}.</li>
+ *   <li>{@code reportCreated} - after the report and its pending outbox entry
+ *   were successfully committed together.</li>
+ *   <li>{@code reportFailed} - when submission fails (validation or any
+ *   persistence failure inside the unit of work). Event publication outcome is
+ *   measured separately by the outbox publisher metrics.</li>
  *   <li>{@code timeCreation} - measures the complete submission operation;
  *   implementations should record success/failure outcomes as bounded,
  *   low-cardinality tags.</li>
@@ -34,10 +35,6 @@ public interface ReportMetrics {
 
     void reportFailed();
 
-    void eventPublished(String eventType);
-
-    void eventPublishFailed(String eventType);
-
     /** No-op implementation for tests and contexts without a registry. */
     static ReportMetrics noop() {
         return new ReportMetrics() {
@@ -52,14 +49,6 @@ public interface ReportMetrics {
 
             @Override
             public void reportFailed() {
-            }
-
-            @Override
-            public void eventPublished(String eventType) {
-            }
-
-            @Override
-            public void eventPublishFailed(String eventType) {
             }
         };
     }

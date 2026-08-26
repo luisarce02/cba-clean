@@ -2,69 +2,38 @@ package com.cbclean.report.infrastructure.messaging;
 
 import com.cbclean.report.application.port.ReportEventPublisher;
 import com.cbclean.report.integration.event.ReportCreatedEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.amqp.core.MessageDeliveryMode;
-import org.springframework.amqp.core.MessagePostProcessor;
-import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * RabbitMQ adapter for the {@link ReportEventPublisher} application port.
+ * RabbitMQ adapter for the {@link ReportEventPublisher} port.
  *
- * <p>Publishes {@link ReportCreatedEvent} instances as persistent JSON
- * messages to the {@code cba-clean.events} topic exchange using the
- * {@code report.created} routing key. JSON serialization uses the Spring
- * application context's Jackson configuration via the RabbitTemplate's
- * message converter.</p>
- *
- * <p>Observability metadata is carried in message headers, never in the
- * business payload: {@code correlationId} (taken from the SLF4J MDC, where the
- * HTTP correlation filter placed it), {@code eventId} and {@code eventType}.
- * A missing MDC value simply omits the header.</p>
+ * <p><strong>No longer part of the report submission flow:</strong> since the
+ * Transactional Outbox Pattern was introduced, report creation persists its
+ * events in the PostgreSQL outbox and the asynchronous outbox publisher
+ * delivers them (via {@link RabbitReportEventGateway}). This direct-publish
+ * adapter remains for tooling and infrastructure tests; it adds no second wire
+ * contract - it only resolves the correlation ID from the SLF4J MDC (where the
+ * HTTP correlation filter placed it) and delegates to the gateway.</p>
  */
 @Component
 public class RabbitReportEventPublisher implements ReportEventPublisher {
 
-    private static final Logger log = LoggerFactory.getLogger(RabbitReportEventPublisher.class);
-
-    static final String EVENT_TYPE_HEADER = "eventType";
-    static final String REPORT_CREATED_EVENT_TYPE = "report.created";
-    static final String EVENT_ID_HEADER = "eventId";
-    static final String CORRELATION_ID_HEADER = "correlationId";
     static final String CORRELATION_ID_MDC_KEY = "correlationId";
 
-    private final RabbitTemplate rabbitTemplate;
+    public static final String EVENT_TYPE_HEADER = RabbitReportEventGateway.EVENT_TYPE_HEADER;
+    public static final String REPORT_CREATED_EVENT_TYPE = RabbitReportEventGateway.REPORT_CREATED_EVENT_TYPE;
+    public static final String EVENT_ID_HEADER = RabbitReportEventGateway.EVENT_ID_HEADER;
+    public static final String CORRELATION_ID_HEADER = RabbitReportEventGateway.CORRELATION_ID_HEADER;
 
-    public RabbitReportEventPublisher(RabbitTemplate rabbitTemplate) {
-        this.rabbitTemplate = rabbitTemplate;
+    private final RabbitReportEventGateway gateway;
+
+    public RabbitReportEventPublisher(RabbitReportEventGateway gateway) {
+        this.gateway = gateway;
     }
 
     @Override
     public void publishReportCreated(ReportCreatedEvent event) {
-        rabbitTemplate.convertAndSend(
-                MessagingTopology.EVENTS_EXCHANGE,
-                MessagingTopology.REPORT_CREATED_ROUTING_KEY,
-                event,
-                jsonMetadata(event));
-        log.info("operation=event-publish result=published eventType={} eventId={} reportId={}",
-                REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
-    }
-
-    private MessagePostProcessor jsonMetadata(ReportCreatedEvent event) {
-        return message -> {
-            MessageProperties properties = message.getMessageProperties();
-            properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-            properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
-            properties.setHeader(EVENT_TYPE_HEADER, REPORT_CREATED_EVENT_TYPE);
-            properties.setHeader(EVENT_ID_HEADER, event.eventId().toString());
-            String correlationId = MDC.get(CORRELATION_ID_MDC_KEY);
-            if (correlationId != null && !correlationId.isBlank()) {
-                properties.setHeader(CORRELATION_ID_HEADER, correlationId);
-            }
-            return message;
-        };
+        gateway.publish(event, MDC.get(CORRELATION_ID_MDC_KEY));
     }
 }

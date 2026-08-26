@@ -66,7 +66,6 @@ class MetricsEndpointIntegrationTest {
 
         for (String metric : new String[]{
                 "cbaclean.reports.created",
-                "cbaclean.report.events.published",
                 "cbaclean.report.creation.duration"}) {
             assertThat(index.getBody()).as("metric %s listed", metric).contains(metric);
             ResponseEntity<String> single =
@@ -74,6 +73,15 @@ class MetricsEndpointIntegrationTest {
             assertThat(single.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(single.getBody()).contains("COUNT");
         }
+
+        // The outbox pending gauge is registered eagerly and always present;
+        // gauges expose a VALUE measurement rather than a COUNT.
+        ResponseEntity<String> pending =
+                rest.getForEntity("/actuator/metrics/cbaclean.outbox.events.pending", String.class);
+        assertThat(pending.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(pending.getBody())
+                .contains("VALUE")
+                .contains("Outbox events currently awaiting publication");
     }
 
     @Test
@@ -86,7 +94,7 @@ class MetricsEndpointIntegrationTest {
         // Note: Prometheus reserves the _created suffix, so
         // cbaclean.reports.created is exposed as cbaclean_reports_total.
         assertThat(response.getBody()).contains("cbaclean_reports_total");
-        assertThat(response.getBody()).contains("cbaclean_report_events_published");
+        assertThat(response.getBody()).contains("cbaclean_outbox_events_pending");
         assertThat(response.getBody()).contains("cbaclean_report_creation_duration");
     }
 

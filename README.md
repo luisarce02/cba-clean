@@ -8,7 +8,11 @@ over RabbitMQ and turned into incidents (Incident Service, MongoDB).
 
 ```
 citizen -> Report Service (PostgreSQL)
-               |  publishes ReportCreatedEvent
+               |  one PostgreSQL transaction:
+               |  reports + outbox_events
+               v
+          Outbox Publisher  (polls pending events)
+               |
                v
            RabbitMQ  (cba-clean.events exchange)
                |
@@ -17,11 +21,52 @@ citizen -> Report Service (PostgreSQL)
            opens incidents, idempotent via processed_events claims
 ```
 
+## Transactional Outbox
+
+**Why the direct approach was unsafe.** Previously the Report Service saved the
+report to PostgreSQL and then published `ReportCreatedEvent` straight to
+RabbitMQ. Those are two separate systems - if the broker was unavailable after
+the commit, the report existed but its event was lost forever. There was no way
+to make "database write + broker publish" atomic.
+
+**How the outbox solves it.** Submitting a report now persists the aggregate
+and its integration event in **one PostgreSQL transaction** (`reports` +
+`outbox_events`). A successful `POST /api/v1/reports` therefore guarantees the
+event is durably stored, no matter what state RabbitMQ is in. Publication is
+asynchronous: a scheduled publisher polls pending events and delivers them to
+RabbitMQ, marking an event `PUBLISHED` only after the broker's **publisher
+confirm** arrived. If RabbitMQ is down, events simply stay pending and are
+retried on every poll round - submissions keep succeeding while the broker is
+offline.
+
+**Delivery semantics: at-least-once.** The publisher can crash between broker
+acceptance and marking the row published, so an event may be delivered more
+than once. Exactly-once delivery across two systems is not achievable with this
+pattern alone - which is why Incident Service idempotency (claim-first
+deduplication on `eventId`) remains in place. Outbox retry covers *"the broker
+was unavailable while publishing"*; consumer retry/DLQ covers *"the consumer
+received the event but processing failed"*. The two mechanisms solve different
+problems.
+
+**Outbox details**
+
+- Table `outbox_events` (Flyway `V2__create_outbox_events_table.sql`); its
+  primary key is the integration event's `eventId`, so one identity flows from
+  PostgreSQL through RabbitMQ headers into Incident Service idempotency.
+- Lifecycle: `PENDING -> PUBLISHING -> PUBLISHED`; failed attempts return to
+  `PENDING` with bounded metadata (`attempts`, `last_attempt_at`,
+  `last_error`). Only broker-confirmed messages ever become `PUBLISHED`.
+- Claiming uses `SELECT ... FOR UPDATE SKIP LOCKED`, so scaled-out publisher
+  instances never work on the same event.
+- Configuration (prefix `cbaclean.outbox`): `poll-interval` (default `PT5S`),
+  `batch-size` (default `20`), `publish-confirm-timeout` (default `PT5S`);
+  overridable via environment (`OUTBOX_POLL_INTERVAL`, ...).
+
 ## Messaging architecture
 
 - **Main exchange**: `cba-clean.events` (topic, durable) -
   the Report Service publishes `ReportCreatedEvent` with routing key
-  `report.created`.
+  `report.created` (via the transactional outbox publisher).
 - **Main queue**: `incident-service.report-created` (durable), bound to the
   main exchange. It is declared with dead-letter routing
   (`x-dead-letter-exchange=cba-clean.dlx`,
@@ -63,8 +108,10 @@ consumer atomically claims the event's `eventId` in MongoDB
 the claim was consumed, the retried delivery is skipped as already claimed -
 no incident is created for it. Retries therefore repair transient failures up
 to and including the claim (e.g. MongoDB briefly unavailable); closing the
-claim-to-persist window would require transactional writes or the Outbox
-Pattern, which is out of scope here.
+claim-to-persist window would require transactional writes in MongoDB, which is
+out of scope here. Combined with the Report Service's transactional outbox,
+duplicate deliveries are expected and safe: the outbox guarantees the event is
+never lost, idempotency guarantees duplicates create exactly one incident.
 
 ### One-time migration note
 
@@ -95,8 +142,9 @@ sensitive endpoints such as `env`, `beans`, `configprops`, `mappings`,
 | Metric | Meaning |
 |---|---|
 | `cbaclean.reports.created` / `cbaclean.reports.failed` | reports persisted / submissions failed |
-| `cbaclean.report.events.published` / `.publish.failures` | RabbitMQ publication outcome |
 | `cbaclean.report.creation.duration` | timer over the complete submission operation (`result=success/failure`) |
+| `cbaclean.outbox.events.pending` | gauge of outbox events awaiting publication |
+| `cbaclean.outbox.events.published` / `.publish.failures` | outbox publication outcome (broker-confirmed / failed attempts) |
 | `cbaclean.incidents.created` / `cbaclean.incidents.failed` | incidents persisted / incident creation failed |
 | `cbaclean.incident.events.processed` | events processed successfully |
 | `cbaclean.incident.events.duplicates` | duplicates skipped by idempotency |
