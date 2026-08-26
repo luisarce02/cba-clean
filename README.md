@@ -74,6 +74,48 @@ one upgrade requires deleting the old queue (or running
 `docker compose down -v` for local development) before starting the new
 incident service.
 
+## Observability
+
+### Health & metrics endpoints
+
+Both services expose a deliberately small Actuator surface
+(`management.endpoints.web.exposure.include=health,info,metrics,prometheus`;
+sensitive endpoints such as `env`, `beans`, `configprops`, `mappings`,
+`heapdump` and `threaddump` are disabled):
+
+- **Health**: `http://localhost:8080/actuator/health` (Report Service),
+  `http://localhost:8081/actuator/health` (Incident Service)
+- **Metrics index**: `/actuator/metrics` - lists all meters; single meters via
+  `/actuator/metrics/{name}`
+- **Prometheus scrape endpoint**: `/actuator/prometheus` - ready for a
+  Prometheus server in a later step
+
+### Business & messaging metrics (`cbaclean.*`)
+
+| Metric | Meaning |
+|---|---|
+| `cbaclean.reports.created` / `cbaclean.reports.failed` | reports persisted / submissions failed |
+| `cbaclean.report.events.published` / `.publish.failures` | RabbitMQ publication outcome |
+| `cbaclean.report.creation.duration` | timer over the complete submission operation (`result=success/failure`) |
+| `cbaclean.incidents.created` / `cbaclean.incidents.failed` | incidents persisted / incident creation failed |
+| `cbaclean.incident.events.processed` | events processed successfully |
+| `cbaclean.incident.events.duplicates` | duplicates skipped by idempotency |
+| `cbaclean.incident.events.retries` | events scheduled onto the retry chain |
+| `cbaclean.incident.events.dead_lettered` | events sent to the DLQ (`reason=retry_exhausted/translation_failure`) |
+| `cbaclean.incident.event.processing.duration` | timer over event processing attempts |
+
+Only bounded, low-cardinality tags are used (`eventType`, `result`, `reason`);
+identifiers (reportId/incidentId/eventId/correlationId) are never attached to
+metrics - they belong to logs.
+
+### Correlation IDs & structured logs
+
+Every HTTP request gets an `X-Correlation-ID` (generated if absent, preserved
+if valid) which travels in RabbitMQ message headers into the Incident Service.
+It is carried in the SLF4J MDC, rendered in every log line
+(`[correlationId=...]`) and cleared after each request/message, so a report can
+be traced end-to-end across both services with `grep correlationId=<id>`.
+
 ## Running the stack
 
 ```bash

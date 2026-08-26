@@ -27,4 +27,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # Intentionally small surface; sensitive endpoints stay disabled.
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never

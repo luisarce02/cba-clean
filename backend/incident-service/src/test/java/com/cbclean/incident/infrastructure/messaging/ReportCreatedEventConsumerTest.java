@@ -5,6 +5,7 @@ import com.cbclean.incident.application.incident.open.OpenIncidentUseCase;
 import com.cbclean.incident.application.port.ProcessedEventRecorder;
 import com.cbclean.incident.domain.model.IncidentPriority;
 import com.cbclean.incident.domain.model.IncidentType;
+import com.cbclean.incident.infrastructure.metrics.IncidentMetrics;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +36,7 @@ class ReportCreatedEventConsumerTest {
     private final ProcessedEventRecorder processedEvents = mock(ProcessedEventRecorder.class);
     private final ReportCreatedEventRetryRouter retryRouter = mock(ReportCreatedEventRetryRouter.class);
     private final ReportCreatedEventConsumer consumer =
-            new ReportCreatedEventConsumer(useCase, processedEvents, retryRouter);
+            new ReportCreatedEventConsumer(useCase, processedEvents, retryRouter, IncidentMetrics.noop());
 
     private ReportCreatedEvent validEvent() {
         return new ReportCreatedEvent(

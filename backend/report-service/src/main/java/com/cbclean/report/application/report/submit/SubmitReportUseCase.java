@@ -1,6 +1,7 @@
 package com.cbclean.report.application.report.submit;
 
 import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.port.ReportMetrics;
 import com.cbclean.report.domain.model.GeoLocation;
 import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.model.ReportId;
@@ -33,43 +34,69 @@ public class SubmitReportUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(SubmitReportUseCase.class);
 
+    static final String REPORT_CREATED_EVENT_TYPE = "report.created";
+
     private final ReportRepository reports;
     private final ReportEventPublisher events;
     private final Clock clock;
+    private final ReportMetrics metrics;
 
-    public SubmitReportUseCase(ReportRepository reports, ReportEventPublisher events, Clock clock) {
+    public SubmitReportUseCase(ReportRepository reports, ReportEventPublisher events,
+                               Clock clock, ReportMetrics metrics) {
         this.reports = Objects.requireNonNull(reports, "Report repository is required");
         this.events = Objects.requireNonNull(events, "Report event publisher is required");
         this.clock = Objects.requireNonNull(clock, "Clock is required");
+        this.metrics = Objects.requireNonNull(metrics, "Report metrics are required");
     }
 
     public Report execute(SubmitReportCommand command) {
         Objects.requireNonNull(command, "Submission command is required");
-        Report report = Report.submit(
-                ReportId.newId(),
-                command.reportType(),
-                command.location(),
-                command.reporter(),
-                command.description(),
-                command.photoIds(),
-                null,
-                clock.instant());
-        log.info("operation=report-received result=accepted reportId={} reportType={}",
-                report.id().value(), report.type());
-        reports.save(report);
-        log.info("operation=report-persisted result=saved reportId={}", report.id().value());
+        return metrics.timeCreation(() -> {
+            Report report;
+            try {
+                report = Report.submit(
+                        ReportId.newId(),
+                        command.reportType(),
+                        command.location(),
+                        command.reporter(),
+                        command.description(),
+                        command.photoIds(),
+                        null,
+                        clock.instant());
+                log.info("operation=report-received result=accepted reportId={} reportType={}",
+                        report.id().value(), report.type());
+            } catch (RuntimeException validationFailure) {
+                metrics.reportFailed();
+                log.error("operation=report-submit result=failed reason=validation", validationFailure);
+                throw validationFailure;
+            }
 
-        ReportCreatedEvent event = toEvent(report);
-        try {
-            events.publishReportCreated(event);
-            log.info("operation=event-publish result=published eventType={} eventId={} reportId={}",
-                    "report.created", event.eventId(), event.reportId());
-        } catch (RuntimeException publicationFailure) {
-            log.error("operation=event-publish result=failed eventType={} eventId={} reportId={}",
-                    "report.created", event.eventId(), event.reportId(), publicationFailure);
-            throw publicationFailure;
-        }
-        return report;
+            try {
+                reports.save(report);
+            } catch (RuntimeException persistenceFailure) {
+                metrics.reportFailed();
+                log.error("operation=report-submit result=failed reason=persistence reportId={}",
+                        report.id().value(), persistenceFailure);
+                throw persistenceFailure;
+            }
+            log.info("operation=report-persisted result=saved reportId={}", report.id().value());
+            metrics.reportCreated();
+
+            ReportCreatedEvent event = toEvent(report);
+            try {
+                events.publishReportCreated(event);
+                metrics.eventPublished(REPORT_CREATED_EVENT_TYPE);
+                log.info("operation=event-publish result=published eventType={} eventId={} reportId={}",
+                        REPORT_CREATED_EVENT_TYPE, event.eventId(), event.reportId());
+            } catch (RuntimeException publicationFailure) {
+                metrics.eventPublishFailed(REPORT_CREATED_EVENT_TYPE);
+                log.error("operation=event-publish result=failed eventType={} eventId={} reportId={}",
+                        REPORT_CREATED_EVENT_TYPE, event.eventId(), report.id().value(),
+                        publicationFailure);
+                throw publicationFailure;
+            }
+            return report;
+        });
     }
 
     /**

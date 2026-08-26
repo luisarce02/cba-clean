@@ -1,6 +1,7 @@
 package com.cbclean.report.application.report.submit;
 
 import com.cbclean.report.application.port.ReportEventPublisher;
+import com.cbclean.report.application.port.ReportMetrics;
 import com.cbclean.report.domain.model.GeoLocation;
 import com.cbclean.report.domain.model.InvalidReportException;
 import com.cbclean.report.domain.model.Report;
@@ -35,7 +36,7 @@ class SubmitReportUseCaseTest {
     private final ReportRepository repository = mock(ReportRepository.class);
     private final ReportEventPublisher events = mock(ReportEventPublisher.class);
     private final SubmitReportUseCase useCase =
-            new SubmitReportUseCase(repository, events, Clock.fixed(NOW, ZoneOffset.UTC));
+            new SubmitReportUseCase(repository, events, Clock.fixed(NOW, ZoneOffset.UTC), ReportMetrics.noop());
 
     @Test
     void validSubmissionCreatesSavesAndReturnsReport() {

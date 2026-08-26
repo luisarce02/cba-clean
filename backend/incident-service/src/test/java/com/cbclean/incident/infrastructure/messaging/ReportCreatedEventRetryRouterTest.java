@@ -1,5 +1,6 @@
 package com.cbclean.incident.infrastructure.messaging;
 
+import com.cbclean.incident.infrastructure.metrics.IncidentMetrics;
 import com.cbclean.incident.integration.event.ReportCreatedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ class ReportCreatedEventRetryRouterTest {
     private final RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
     private final IncidentMessagingRetryProperties properties = new IncidentMessagingRetryProperties();
     private final ReportCreatedEventRetryRouter router =
-            new ReportCreatedEventRetryRouter(rabbitTemplate, properties);
+            new ReportCreatedEventRetryRouter(rabbitTemplate, properties, IncidentMetrics.noop());
 
     private final ReportCreatedEvent event = new ReportCreatedEvent(
             UUID.fromString("aaaaaaaa-1111-1111-1111-111111111111"),
