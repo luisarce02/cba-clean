@@ -164,6 +164,61 @@ It is carried in the SLF4J MDC, rendered in every log line
 (`[correlationId=...]`) and cleared after each request/message, so a report can
 be traced end-to-end across both services with `grep correlationId=<id>`.
 
+## Security / JWT
+
+Both services use **JWT Bearer authentication** via Spring Security's OAuth2
+Resource Server. The security boundary lives at the presentation layer; no
+domain or application code has any security dependency.
+
+### Authentication model
+
+- Tokens must be signed (RS256) and carry a `roles` claim containing a JSON
+  string array of role names (e.g. `["REPORTER","OPERATOR"]`).
+- Two roles are used:
+  - **`REPORTER`** - create and retrieve waste reports.
+  - **`OPERATOR`** - operational access (actuator metrics/prometheus).
+
+### Endpoint policy
+
+| Endpoint | Access |
+|---|---|
+| `/actuator/health`, `/actuator/info` | Public |
+| `/api/v1/reports/**` | `ROLE_REPORTER` or `ROLE_OPERATOR` |
+| `/actuator/metrics`, `/actuator/prometheus` | `ROLE_OPERATOR` |
+| Everything else | 404 (no security error) |
+
+### Expected behavior
+
+- **401 Unauthorized** when unauthenticated or token is invalid (expired,
+  tampered, malformed).
+- **403 Forbidden** when authenticated but the token lacks the required role.
+- Security failures never reveal why the token was rejected or leak
+  `Authorization` header values into logs.
+
+### JWT configuration
+
+Exactly one token signature source must be configured:
+
+| Environment variable | Property | Default | Purpose |
+|---|---|---|---|
+| `JWT_ISSUER_URI` | `spring.security.oauth2.resourceserver.jwt.issuer-uri` | `http://localhost:9000` | OIDC issuer for token signature validation (lazy - service starts even while issuer is unreachable) |
+| `JWT_JWK_SET_URI` | `spring.security.oauth2.resourceserver.jwt.jwk-set-uri` | *(blank)* | Alternative: direct JWKS endpoint |
+| `JWT_AUDIENCE` | `cbaclean.security.jwt.audience` | *(blank = disabled)* | Optional audience validation (`aud` claim check) |
+
+### RabbitMQ and Incident Service
+
+Incident Service consumes `ReportCreatedEvent` messages from RabbitMQ. RabbitMQ
+messages are authenticated by the broker connection, not by JWTs; HTTP security
+on the Incident Service secures only the Actuator surface (the service has no
+REST API).
+
+### Local testing
+
+Integration tests use an in-memory RSA key pair (`TestJwts` utility) to mint
+signed tokens with arbitrary roles - no external identity provider is needed.
+The security integration test (`ReportApiSecurityIntegrationTest`) drives the
+complete HTTP security chain against real PostgreSQL and RabbitMQ containers.
+
 ## Running the stack
 
 ```bash

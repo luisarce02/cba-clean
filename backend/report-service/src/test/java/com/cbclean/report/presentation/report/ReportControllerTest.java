@@ -33,7 +33,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ReportController.class)
+@org.springframework.context.annotation.Import({
+        com.cbclean.report.presentation.security.ReportServiceSecurityConfig.class,
+        com.cbclean.report.presentation.security.RestAuthenticationEntryPoint.class,
+        com.cbclean.report.presentation.security.RestAccessDeniedHandler.class,
+        com.cbclean.report.presentation.security.RolesClaimAuthenticationConverter.class})
+@org.springframework.security.test.context.support.WithMockUser(authorities = "ROLE_REPORTER")
 class ReportControllerTest {
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
     private static final Instant NOW = Instant.parse("2026-08-25T12:00:00Z");
 
