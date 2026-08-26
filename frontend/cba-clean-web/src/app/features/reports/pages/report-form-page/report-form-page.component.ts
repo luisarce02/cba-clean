@@ -11,11 +11,12 @@ import {
   REPORT_TYPE_VALUES,
 } from '../../models/report.model';
 import { ErrorDisplayComponent } from '../../../../shared/components/error-display/error-display.component';
+import { ReportLocationMapComponent } from '../../components/report-location-map/report-location-map.component';
 
 @Component({
   selector: 'app-report-form-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ErrorDisplayComponent],
+  imports: [CommonModule, ReactiveFormsModule, ErrorDisplayComponent, ReportLocationMapComponent],
   templateUrl: './report-form-page.component.html',
   styleUrl: './report-form-page.component.scss',
 })
@@ -40,6 +41,13 @@ export class ReportFormPageComponent {
     reporterEmail: ['', [Validators.email, Validators.maxLength(200)]],
     reporterPhone: ['', Validators.pattern(/^(\+)?[0-9 ]{6,20}$/)],
   });
+
+  onLocationSelected(event: { latitude: number; longitude: number }): void {
+    this.reportForm.patchValue({
+      latitude: event.latitude,
+      longitude: event.longitude,
+    });
+  }
 
   onSubmit(): void {
     if (this.reportForm.invalid) {

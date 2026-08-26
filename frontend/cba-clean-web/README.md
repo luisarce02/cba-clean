@@ -57,3 +57,12 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Report Location Map
+
+The Angular report form includes an interactive map for selecting report locations. The map uses [Leaflet](https://leafletjs.com/) with [OpenStreetMap](https://www.openstreetmap.org/) tiles.
+
+- Default map center: Cochabamba, Bolivia (-17.3935, -66.1570)
+- Click anywhere on the map to place a marker and set latitude/longitude
+- Optional "Use my location" button for browser geolocation
+- Coordinates update the reactive form fields automatically
