@@ -96,37 +96,38 @@ public class IncidentServiceSecurityConfig {
             @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:}") String jwkSetUri,
             @Value("${cbaclean.security.jwt.audience:}") String audience) {
 
-        if ((issuerUri == null || issuerUri.isBlank()) && (jwkSetUri == null || jwkSetUri.isBlank())) {
+        boolean hasIssuer = issuerUri != null && !issuerUri.isBlank();
+        boolean hasJwk = jwkSetUri != null && !jwkSetUri.isBlank();
+
+        if (!hasIssuer && !hasJwk) {
             throw new IllegalStateException(
                     "JWT validation is not configured. Set JWT_ISSUER_URI (recommended) or "
                             + "JWT_JWK_SET_URI; refusing to start without any token signature verification.");
         }
-        boolean useIssuer = issuerUri != null && !issuerUri.isBlank();
-        log.info("operation=security-init result=configured mode={}",
-                useIssuer ? "issuer-uri" : "jwk-set-uri");
 
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
         validators.add(new JwtTimestampValidator());
-        if (useIssuer) {
+        if (hasIssuer) {
             validators.add(new JwtIssuerValidator(issuerUri.trim()));
         }
         if (audience != null && !audience.isBlank()) {
             validators.add(new JwtAudienceValidator(audience.trim()));
         }
+        DelegatingOAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(validators);
 
-        if (useIssuer) {
-            // Issuer-based decoders resolve the OIDC discovery document
-            // eagerly; defer that until the first token arrives so the service
-            // always starts.
-            return new LazyJwtDecoder(() -> {
-                NimbusJwtDecoder resolved = NimbusJwtDecoder.withIssuerLocation(issuerUri.trim()).build();
-                resolved.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
-                return resolved;
-            });
+        if (hasJwk) {
+            log.info("operation=security-init result=configured mode=jwk-set-uri issuer-validated={}", hasIssuer);
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri.trim()).build();
+            decoder.setJwtValidator(validator);
+            return decoder;
         }
-        NimbusJwtDecoder direct = NimbusJwtDecoder.withJwkSetUri(jwkSetUri.trim()).build();
-        direct.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
-        return direct;
+
+        log.info("operation=security-init result=configured mode=issuer-uri");
+        return new LazyJwtDecoder(() -> {
+            NimbusJwtDecoder resolved = NimbusJwtDecoder.withIssuerLocation(issuerUri.trim()).build();
+            resolved.setJwtValidator(validator);
+            return resolved;
+        });
     }
 
     /** Defers decoder construction (and OIDC discovery) to first token validation. */

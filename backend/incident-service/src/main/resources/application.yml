@@ -19,6 +19,7 @@ spring:
           # Secures the Actuator surface (the service has no REST API; the
           # RabbitMQ flow is authenticated by the broker connection).
           issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000}
+          jwk-set-uri: ${JWT_JWK_SET_URI:}
 
 server:
   port: 8081

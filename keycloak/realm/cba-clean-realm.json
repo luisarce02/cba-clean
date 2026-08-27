@@ -1,0 +1,148 @@
+{
+  "id": "cba-clean",
+  "realm": "cba-clean",
+  "enabled": true,
+  "displayName": "CBA Clean",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "passwordPolicy": "length(8)",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "id": "reporter-role",
+        "name": "REPORTER",
+        "description": "Can create and read reports",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "cba-clean"
+      },
+      {
+        "id": "operator-role",
+        "name": "OPERATOR",
+        "description": "Operational access (metrics, prometheus)",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "cba-clean"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "id": "cba-clean-web",
+      "clientId": "cba-clean-web",
+      "name": "CBA Clean Web",
+      "description": "Angular frontend SPA",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:4200",
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "defaultClientScopes": [
+        "web-origins"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200"
+      },
+      "protocolMappers": [
+        {
+          "id": "realm-roles-mapper",
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "token.claim.name": "roles",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "id": "audience-mapper",
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cba-clean-web",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "reporter-user",
+      "username": "reporter",
+      "email": "reporter@cba-clean.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Reporter",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "reporter",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "REPORTER"
+      ],
+      "clientRoles": {}
+    },
+    {
+      "id": "operator-user",
+      "username": "operator",
+      "email": "operator@cba-clean.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "Operator",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "operator",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "OPERATOR"
+      ],
+      "clientRoles": {}
+    }
+  ]
+}

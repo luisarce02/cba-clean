@@ -34,6 +34,33 @@ services:
       retries: 10
       start_period: 20s
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: cbaclean-keycloak
+    environment:
+      KC_DB: dev-file
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
+      KC_HOSTNAME: "http://localhost:8090"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_BACKCHANNEL: "true"
+      KC_FEATURES: "token-exchange"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: ["start-dev", "--import-realm"]
+    volumes:
+      - ./keycloak/realm:/opt/keycloak/data/import
+      - cbaclean_keycloakdata:/opt/keycloak/data
+    ports:
+      - "8090:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/9000 && exit 0' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
   report-service:
     build:
       context: ./backend/report-service
@@ -46,9 +73,9 @@ services:
       RABBITMQ_PORT: "5672"
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-cbaclean}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cbaclean}
-      JWT_ISSUER_URI: ${JWT_ISSUER_URI:-http://localhost:9000}
-      JWT_JWK_SET_URI: ${JWT_JWK_SET_URI:-}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-}
+      JWT_ISSUER_URI: ${JWT_ISSUER_URI:-http://localhost:8090/realms/cba-clean}
+      JWT_JWK_SET_URI: ${JWT_JWK_SET_URI:-http://keycloak:8080/realms/cba-clean/protocol/openid-connect/certs}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-cba-clean-web}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
     ports:
       - "8080:8080"
@@ -56,6 +83,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
 
   mongo:
@@ -87,9 +116,9 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cbaclean}
       INCIDENT_RETRY_MAX_RETRIES: ${INCIDENT_RETRY_MAX_RETRIES:-3}
       INCIDENT_RETRY_DELAYS: ${INCIDENT_RETRY_DELAYS:-2s,4s,8s}
-      JWT_ISSUER_URI: ${JWT_ISSUER_URI:-http://localhost:9000}
-      JWT_JWK_SET_URI: ${JWT_JWK_SET_URI:-}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-}
+      JWT_ISSUER_URI: ${JWT_ISSUER_URI:-http://localhost:8090/realms/cba-clean}
+      JWT_JWK_SET_URI: ${JWT_JWK_SET_URI:-http://keycloak:8080/realms/cba-clean/protocol/openid-connect/certs}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-cba-clean-web}
     ports:
       - "8081:8081"
     depends_on:
@@ -97,8 +126,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
 
 volumes:
   cbaclean_pgdata:
   cbaclean_mongodata:
   cbaclean_rabbitmqdata:
+  cbaclean_keycloakdata:
