@@ -1,11 +1,11 @@
 export const environment = {
   production: true,
-  apiBaseUrl: '/api/v1',
-  incidentApiBaseUrl: '/api/v1',
+  apiBaseUrl: 'http://localhost:8080/api/v1',
+  incidentApiBaseUrl: 'http://localhost:8081/api/v1',
   keycloak: {
-    issuer: '',
-    redirectUri: '',
-    clientId: '',
+    issuer: 'http://localhost:8090/realms/cba-clean',
+    redirectUri: 'http://localhost:4200',
+    clientId: 'cba-clean-web',
     scope: 'openid',
   },
 };
