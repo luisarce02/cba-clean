@@ -22,18 +22,57 @@
     </div>
   </div>
 
-  <div class="recent-incidents">
-    <h2>Recent Incidents</h2>
-    <div class="incident-list">
-      <div class="incident-item">
-        <span class="incident-id">Incident #123</span>
-        <span class="incident-meta">Priority: HIGH — Status: OPEN</span>
-      </div>
-      <div class="incident-item">
-        <span class="incident-id">Incident #122</span>
-        <span class="incident-meta">Priority: MEDIUM — Status: IN_PROGRESS</span>
+  @if (!loading() && !error() && incidents().length > 0) {
+    <div class="summary">
+      <h2>Incidents Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-item"><span class="summary-count">{{ summary().newCount }}</span><span class="summary-label">New</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().assignedCount }}</span><span class="summary-label">Assigned</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().inProgressCount }}</span><span class="summary-label">In Progress</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().resolvedCount }}</span><span class="summary-label">Resolved</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().cancelledCount }}</span><span class="summary-label">Cancelled</span></div>
+        <div class="summary-item total"><span class="summary-count">{{ summary().total }}</span><span class="summary-label">Total</span></div>
       </div>
     </div>
-    <p class="hint">Incident detail integration will be connected to the backend incident service.</p>
+  }
+
+  <div class="recent-incidents">
+    <h2>Recent Incidents</h2>
+
+    @if (loading()) {
+      <p class="state-message">Loading incidents…</p>
+    } @else if (error()) {
+      <div class="state-error">
+        <p>Failed to load incidents: {{ error() }}</p>
+        <button type="button" class="btn btn-secondary" (click)="loadIncidents()">Retry</button>
+      </div>
+    } @else if (incidents().length === 0) {
+      <p class="state-message">No incidents yet. Incidents are created automatically from citizen reports.</p>
+    } @else {
+      <div class="incident-list">
+        @for (incident of incidents(); track incident.id) {
+          <div class="incident-card">
+            <div class="incident-header">
+              <span class="incident-id">Incident {{ incident.id | slice:0:8 }}</span>
+              <span class="status-badge">
+                <span class="status-indicator" [ngClass]="statusClass(incident.status)" [attr.aria-label]="incident.status"></span>
+                <span class="status-text">{{ incident.status }}</span>
+              </span>
+            </div>
+            <div class="incident-details">
+              <span class="detail">Type: {{ typeLabels[incident.type] ?? incident.type }}</span>
+              <span class="detail">Priority: {{ priorityLabels[incident.priority] ?? incident.priority }}</span>
+              <span class="detail">Created: {{ incident.createdAt | date:'mediumDate' }}</span>
+              @if (incident.location.address) {
+                <span class="detail">Location: {{ incident.location.address }}</span>
+              } @else {
+                <span class="detail">Location: {{ incident.location.latitude | number:'1.4-4' }}, {{ incident.location.longitude | number:'1.4-4' }}</span>
+              }
+            </div>
+            <a [routerLink]="['/operator/incidents', incident.id]" class="btn btn-secondary">View Details</a>
+          </div>
+        }
+      </div>
+    }
   </div>
 </section>

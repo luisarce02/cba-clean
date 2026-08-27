@@ -1,0 +1,79 @@
+<section class="incident-detail">
+  <a routerLink="/operator/dashboard" class="back-link">← Back to Dashboard</a>
+
+  @if (loading()) {
+    <p class="state-message">Loading incident…</p>
+  } @else if (error()) {
+    <div class="state-error">
+      <p>{{ error() }}</p>
+    </div>
+  } @else if (incident(); as inc) {
+    <h1>Incident {{ inc.id | slice:0:8 }}</h1>
+
+    <div class="detail-grid">
+      <div class="field"><span class="label">Incident ID</span><span class="value mono">{{ inc.id }}</span></div>
+      <div class="field"><span class="label">Report ID</span><span class="value mono">{{ inc.reportId }}</span></div>
+      <div class="field"><span class="label">Type</span><span class="value">{{ typeLabels[inc.type] ?? inc.type }}</span></div>
+      <div class="field"><span class="label">Priority</span><span class="value">{{ priorityLabels[inc.priority] ?? inc.priority }}</span></div>
+      <div class="field">
+        <span class="label">Status</span>
+        <span class="value status-badge">
+          <span class="status-indicator" [ngClass]="statusClass(inc.status)" [attr.aria-label]="inc.status"></span>
+          <span>{{ inc.status }}</span>
+        </span>
+      </div>
+      <div class="field"><span class="label">Created</span><span class="value">{{ inc.createdAt | date:'medium' }}</span></div>
+      <div class="field"><span class="label">Last Modified</span><span class="value">{{ inc.lastModifiedAt | date:'medium' }}</span></div>
+      <div class="field"><span class="label">Location</span>
+        <span class="value">
+          {{ inc.location.latitude | number:'1.4-4' }}, {{ inc.location.longitude | number:'1.4-4' }}
+          @if (inc.location.address) { — {{ inc.location.address }} }
+          @if (inc.location.zone) { (Zone: {{ inc.location.zone }}) }
+        </span>
+      </div>
+      @if (inc.description) {
+        <div class="field full"><span class="label">Description</span><span class="value">{{ inc.description }}</span></div>
+      }
+      @if (inc.assignment) {
+        <div class="field"><span class="label">Assignee</span><span class="value">{{ inc.assignment.assigneeId }} @if (inc.assignment.team) { ({{ inc.assignment.team }}) }</span></div>
+        <div class="field"><span class="label">Assigned At</span><span class="value">{{ inc.assignment.assignedAt | date:'medium' }}</span></div>
+      }
+      @if (inc.closingNote) {
+        <div class="field full"><span class="label">Closing Note</span><span class="value">{{ inc.closingNote }}</span></div>
+      }
+    </div>
+
+    <div class="status-management">
+      <h2>Status Management</h2>
+      @if (availableTransitions().length === 0) {
+        <p class="state-message">No further transitions available. This incident is terminal ({{ inc.status }}).</p>
+      } @else {
+        <div class="update-form">
+          <label for="statusSelect">Next Status</label>
+          <select id="statusSelect" [value]="selectedStatus()" (change)="selectedStatus.set($any($event.target).value)">
+            <option value="">Select status…</option>
+            @for (s of availableTransitions(); track s) {
+              <option [value]="s">{{ s }}</option>
+            }
+          </select>
+
+          @if (requiresNote(selectedStatus())) {
+            <label for="closingNote">Closing Note / Reason</label>
+            <textarea id="closingNote" rows="3" [value]="closingNote()" (input)="closingNote.set($any($event.target).value)" placeholder="Provide reason…"></textarea>
+          }
+
+          <button type="button" class="btn btn-primary" [disabled]="!selectedStatus() || updating()" (click)="updateStatus()">
+            @if (updating()) { Updating… } @else { Update Status }
+          </button>
+        </div>
+
+        @if (updateError()) {
+          <div class="alert alert-error">{{ updateError() }}</div>
+        }
+        @if (updateSuccess()) {
+          <div class="alert alert-success">{{ updateSuccess() }}</div>
+        }
+      }
+    </div>
+  }
+</section>

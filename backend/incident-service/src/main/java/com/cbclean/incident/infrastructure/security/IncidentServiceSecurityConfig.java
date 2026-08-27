@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,6 +28,10 @@ import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -39,22 +44,15 @@ import java.util.Objects;
 /**
  * Security boundary of the Incident Service.
  *
- * <p>The Incident Service exposes <strong>no REST API</strong> - it consumes
- * {@code ReportCreatedEvent} messages from RabbitMQ. RabbitMQ messages are
- * authenticated by the broker connection, not by JWTs; nothing about HTTP
- * security changes that flow.</p>
+ * <p>The Incident Service consumes {@code ReportCreatedEvent} messages from RabbitMQ
+ * (broker-authenticated) and exposes a REST API for OPERATOR incident management.</p>
  *
- * <p>What is secured here is the Actuator surface:</p>
+ * <p>What is secured here is:</p>
  * <ul>
  *   <li>{@code /actuator/health}, {@code /actuator/info} - public.</li>
- *   <li>{@code /actuator/metrics}, {@code /actuator/prometheus} -
- *   {@code ROLE_OPERATOR}.</li>
+ *   <li>{@code /actuator/metrics}, {@code /actuator/prometheus} - ROLE_OPERATOR.</li>
+ *   <li>{@code /api/v1/incidents/**} - ROLE_OPERATOR.</li>
  * </ul>
- *
- * <p>Same resource-server setup as the Report Service: externalized issuer
- * ({@code JWT_ISSUER_URI}) or JWKS endpoint ({@code JWT_JWK_SET_URI}),
- * optional audience ({@code JWT_AUDIENCE}), roles claim convention,
- * stateless, CSRF disabled, no sessions, CORS disabled.</p>
  */
 @Configuration
 @EnableWebSecurity
@@ -64,25 +62,48 @@ public class IncidentServiceSecurityConfig {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    @Value("${cbaclean.cors.allowed-origins:http://localhost:4200}")
+    private String allowedOrigins;
+
     @Bean
     public SecurityFilterChain incidentServiceSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/metrics", "/actuator/metrics/**",
                                 "/actuator/prometheus").hasRole("OPERATOR")
-                        // No other endpoints exist; unknown/disabled paths keep
-                        // their plain 404 handling instead of security errors.
+                        .requestMatchers("/api/v1/incidents/**").hasRole("OPERATOR")
+                        // Unknown/disabled paths keep plain 404 handling instead of security errors.
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(
                                 new RolesClaimAuthenticationConverter()))
-                        .authenticationEntryPoint(unauthorized()));
+                        .authenticationEntryPoint(unauthorized()))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(unauthorized())
+                        .accessDeniedHandler(accessDenied()));
         return http.build();
+    }
+
+    private CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        List<String> origins = List.of(allowedOrigins.split(",")).stream().map(String::trim).filter(s -> !s.isBlank()).toList();
+        if (origins.isEmpty()) {
+            origins = List.of("http://localhost:4200");
+        }
+        config.setAllowedOrigins(origins);
+        config.setAllowedMethods(List.of("GET", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-ID"));
+        config.setExposedHeaders(List.of("X-Correlation-ID"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     /**
@@ -166,6 +187,17 @@ public class IncidentServiceSecurityConfig {
             response.setHeader("WWW-Authenticate", "Bearer");
             writeError(response, HttpStatus.UNAUTHORIZED, "Unauthorized",
                     "Authentication is required to access this resource");
+        };
+    }
+
+    private AccessDeniedHandler accessDenied() {
+        return (HttpServletRequest request, HttpServletResponse response,
+                AccessDeniedException accessDeniedException) -> {
+            log.info("operation=http-security-rejection result=denied status=403 path={}",
+                    request.getRequestURI());
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            writeError(response, HttpStatus.FORBIDDEN, "Forbidden",
+                    "You do not have permission to access this resource");
         };
     }
 

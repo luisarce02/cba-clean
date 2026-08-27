@@ -48,6 +48,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'operator/incidents/:id',
+    canActivate: [operatorGuard],
+    loadComponent: () =>
+      import('./features/incidents/pages/incident-detail/incident-detail.component').then(
+        (m) => m.IncidentDetailComponent,
+      ),
+  },
+  {
     path: 'operator/metrics',
     canActivate: [operatorGuard],
     loadComponent: () =>
