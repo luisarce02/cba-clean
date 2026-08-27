@@ -33,6 +33,8 @@ incident:
       delays: ${INCIDENT_RETRY_DELAYS:2s,4s,8s}
 
 cbaclean:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
   security:
     jwt:
       # Optional audience validation; blank disables the aud check.
