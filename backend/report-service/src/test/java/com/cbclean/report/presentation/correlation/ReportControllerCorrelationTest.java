@@ -51,6 +51,9 @@ class ReportControllerCorrelationTest {
     @MockitoBean
     private GetReportUseCase getReportUseCase;
 
+    @MockitoBean
+    private com.cbclean.report.application.report.list.ListReportsUseCase listReportsUseCase;
+
     @Test
     void generatesACorrelationIdWhenTheRequestHasNone() throws Exception {
         MvcResult result = postReport(null);

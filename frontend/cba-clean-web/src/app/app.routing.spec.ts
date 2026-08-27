@@ -83,4 +83,34 @@ describe('App Routing - role based', () => {
     await router.navigateByUrl('/reports/new');
     expect(router.url).toBe('/reports/new');
   });
+
+  it('OPERATOR should access /operator/reports', async () => {
+    await setup(['OPERATOR']);
+    await router.navigateByUrl('/operator/reports');
+    expect(router.url).toBe('/operator/reports');
+  });
+
+  it('REPORTER should be redirected from /operator/reports', async () => {
+    await setup(['REPORTER']);
+    await router.navigateByUrl('/operator/reports');
+    expect(router.url).toBe('/reports/new');
+  });
+
+  it('OPERATOR should access /operator/metrics', async () => {
+    await setup(['OPERATOR']);
+    await router.navigateByUrl('/operator/metrics');
+    expect(router.url).toBe('/operator/metrics');
+  });
+
+  it('REPORTER should be redirected from /operator/metrics', async () => {
+    await setup(['REPORTER']);
+    await router.navigateByUrl('/operator/metrics');
+    expect(router.url).toBe('/reports/new');
+  });
+
+  it('OPERATOR should access /operator/reports/:id', async () => {
+    await setup(['OPERATOR']);
+    await router.navigateByUrl('/operator/reports/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(router.url).toBe('/operator/reports/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+  });
 });

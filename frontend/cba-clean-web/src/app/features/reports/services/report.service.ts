@@ -16,4 +16,8 @@ export class ReportService {
   getReport(id: string): Observable<ReportResponse> {
     return this.http.get<ReportResponse>(`${this.baseUrl}/${id}`);
   }
+
+  getReports(): Observable<ReportResponse[]> {
+    return this.http.get<ReportResponse[]>(this.baseUrl);
+  }
 }

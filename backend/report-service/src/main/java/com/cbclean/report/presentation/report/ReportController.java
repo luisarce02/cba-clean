@@ -2,6 +2,7 @@ package com.cbclean.report.presentation.report;
 
 import com.cbclean.report.application.report.get.GetReportQuery;
 import com.cbclean.report.application.report.get.GetReportUseCase;
+import com.cbclean.report.application.report.list.ListReportsUseCase;
 import com.cbclean.report.application.report.submit.SubmitReportUseCase;
 import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.model.ReportId;
@@ -35,10 +36,12 @@ public class ReportController {
 
     private final SubmitReportUseCase submitReport;
     private final GetReportUseCase getReport;
+    private final ListReportsUseCase listReports;
 
-    public ReportController(SubmitReportUseCase submitReport, GetReportUseCase getReport) {
+    public ReportController(SubmitReportUseCase submitReport, GetReportUseCase getReport, ListReportsUseCase listReports) {
         this.submitReport = submitReport;
         this.getReport = getReport;
+        this.listReports = listReports;
     }
 
     @Operation(
@@ -59,6 +62,25 @@ public class ReportController {
     public ResponseEntity<ReportResponse> submit(@Valid @RequestBody SubmitReportRequest request) {
         Report report = submitReport.execute(request.toCommand());
         return ResponseEntity.status(HttpStatus.CREATED).body(ReportResponse.from(report));
+    }
+
+    @Operation(summary = "List waste reports",
+            description = "Returns all waste reports. Requires OPERATOR role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List of reports",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ReportResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Not authenticated",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Not authorized (requires OPERATOR)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class)))
+    })
+    @GetMapping
+    public ResponseEntity<java.util.List<ReportResponse>> list() {
+        java.util.List<ReportResponse> reports = listReports.execute().stream().map(ReportResponse::from).toList();
+        return ResponseEntity.ok(reports);
     }
 
     @Operation(summary = "Get a waste report by id",

@@ -55,6 +55,9 @@ class ReportControllerTest {
     @MockitoBean
     private com.cbclean.report.application.report.get.GetReportUseCase getReportUseCase;
 
+    @MockitoBean
+    private com.cbclean.report.application.report.list.ListReportsUseCase listReportsUseCase;
+
     @Test
     void validRequestReturns201CreatedWithGeneratedId() throws Exception {
         UUID id = UUID.randomUUID();

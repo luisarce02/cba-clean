@@ -92,6 +92,8 @@ public class ReportServiceSecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/reports").hasRole("REPORTER")
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/v1/reports").hasRole("OPERATOR")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/v1/reports/*").hasAnyRole("REPORTER", "OPERATOR")
                         // Any other method on the API surface is explicitly
                         // denied rather than falling through.

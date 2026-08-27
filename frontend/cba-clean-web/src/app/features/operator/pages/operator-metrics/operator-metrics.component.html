@@ -1,0 +1,41 @@
+<section class="operator-metrics">
+  <div class="header">
+    <div>
+      <h1>Operational Metrics</h1>
+      <p class="subtitle">System metrics and health overview — OPERATOR only.</p>
+    </div>
+    <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">Refresh</button>
+  </div>
+
+  @if (lastUpdated()) {
+    <p class="last-updated">Last updated: {{ lastUpdated() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="state-message">Loading metrics…</p>
+  } @else if (error() && cards().every(c => c.raw == null)) {
+    <div class="state-error">
+      <p>{{ error() }}</p>
+      <button type="button" class="btn btn-secondary" (click)="load()">Retry</button>
+    </div>
+  } @else {
+    <div class="metrics-grid">
+      @for (card of cards(); track card.label) {
+        <div class="metric-card">
+          <span class="metric-label">{{ card.label }}</span>
+          <span class="metric-value" [class.missing]="card.raw == null">{{ card.value }}</span>
+          <span class="metric-source">{{ card.source }}</span>
+          @if (card.error) {
+            <span class="metric-error">{{ card.error }}</span>
+          }
+        </div>
+      }
+    </div>
+
+    @if (error()) {
+      <div class="state-error" style="margin-top:1rem;"><p>{{ error() }}</p></div>
+    }
+
+    <p class="hint">Metrics from <code>/actuator/metrics</code> and <code>/actuator/prometheus</code> (OPERATOR). Polling via manual refresh.</p>
+  }
+</section>

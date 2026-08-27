@@ -40,6 +40,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'operator/reports/:id',
+    canActivate: [operatorGuard],
+    loadComponent: () =>
+      import('./features/reports/pages/report-detail-page/report-detail-page.component').then(
+        (m) => m.OperatorReportDetailComponent,
+      ),
+  },
+  {
     path: 'operator/incidents',
     canActivate: [operatorGuard],
     loadComponent: () =>
