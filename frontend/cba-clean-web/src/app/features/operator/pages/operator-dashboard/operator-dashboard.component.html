@@ -1,0 +1,39 @@
+<section class="operator-dashboard">
+  <h1>Operator Dashboard</h1>
+
+  <div class="overview">
+    <h2>Operations Overview</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Reports</h3>
+        <p>View citizen-submitted waste reports.</p>
+        <a routerLink="/operator/reports" class="btn btn-primary">View Reports</a>
+      </div>
+      <div class="card">
+        <h3>Incidents</h3>
+        <p>Manage incidents derived from reports.</p>
+        <a routerLink="/operator/incidents" class="btn btn-primary">View Incidents</a>
+      </div>
+      <div class="card">
+        <h3>Operational Metrics</h3>
+        <p>View system metrics and health.</p>
+        <a routerLink="/operator/metrics" class="btn btn-primary">View Metrics</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="recent-incidents">
+    <h2>Recent Incidents</h2>
+    <div class="incident-list">
+      <div class="incident-item">
+        <span class="incident-id">Incident #123</span>
+        <span class="incident-meta">Priority: HIGH — Status: OPEN</span>
+      </div>
+      <div class="incident-item">
+        <span class="incident-id">Incident #122</span>
+        <span class="incident-meta">Priority: MEDIUM — Status: IN_PROGRESS</span>
+      </div>
+    </div>
+    <p class="hint">Incident detail integration will be connected to the backend incident service.</p>
+  </div>
+</section>

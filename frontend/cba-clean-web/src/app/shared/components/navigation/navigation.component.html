@@ -1,0 +1,29 @@
+<nav class="main-nav" aria-label="Main navigation">
+  @if (isAuthenticated()) {
+    @if (hasOperatorRole()) {
+      <div class="nav-section">
+        <span class="nav-section-title">Operations</span>
+        <a routerLink="/operator/dashboard" routerLinkActive="active" class="nav-link">Dashboard</a>
+        <a routerLink="/operator/reports" routerLinkActive="active" class="nav-link">Reports</a>
+        <a routerLink="/operator/incidents" routerLinkActive="active" class="nav-link">Incidents</a>
+        <a routerLink="/operator/metrics" routerLinkActive="active" class="nav-link">Metrics</a>
+      </div>
+    }
+    @if (hasReporterRole()) {
+      <div class="nav-section">
+        <span class="nav-section-title">Reporter</span>
+        <a routerLink="/reports/new" routerLinkActive="active" class="nav-link">Submit Report</a>
+      </div>
+    }
+    @if (!hasOperatorRole() && !hasReporterRole()) {
+      <div class="nav-section">
+        <span class="nav-section-title">No role assigned</span>
+        <p class="nav-hint">Contact an administrator to request access.</p>
+      </div>
+    }
+  } @else {
+    <div class="nav-section">
+      <a routerLink="/reports/new" routerLinkActive="active" class="nav-link">Submit Report</a>
+    </div>
+  }
+</nav>
