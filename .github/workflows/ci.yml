@@ -82,11 +82,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Retry only the Docker build for transient registry failures (e.g. Docker Hub 502 Bad Gateway
+      # while resolving nginx:1.27-alpine). The Dockerfile and image tags are valid – local
+      # `docker pull nginx:1.27-alpine` and `docker build` succeed. Real Dockerfile errors will
+      # still fail after 3 attempts and do not use continue-on-error.
       - name: Build frontend Docker image
-        uses: docker/build-push-action@v6
+        uses: Wandalen/wretry.action@v3
         with:
-          context: ./frontend/cba-clean-web
-          file: ./frontend/cba-clean-web/Dockerfile
-          push: false
-          load: true
-          tags: cbaclean-web:ci
+          attempt_limit: 3
+          attempt_delay: 15000
+          action: docker/build-push-action@v6
+          with: |
+            context: ./frontend/cba-clean-web
+            file: ./frontend/cba-clean-web/Dockerfile
+            push: false
+            load: true
+            tags: cbaclean-web:ci
