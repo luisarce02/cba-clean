@@ -132,4 +132,35 @@ describe('AuthService', () => {
     service.loadFromStorage();
     expect(authenticated).toBe(true);
   });
+
+  it('should not clear refresh token when access token is expired (non-destructive getToken)', () => {
+    const payload = { roles: ['OPERATOR'], exp: Math.floor(Date.now() / 1000) - 10 };
+    const token = `header.${btoa(JSON.stringify(payload))}.sig`;
+    localStorage.setItem('cba_clean_access_token', token);
+    localStorage.setItem('cba_clean_expires_at', String(Date.now() - 1000));
+    localStorage.setItem('cba_clean_refresh_token', 'stored-refresh');
+
+    service.loadFromStorage();
+
+    expect(service.getToken()).toBeNull();
+    expect(service.isAuthenticated()).toBe(false);
+    // refresh token must still be present for silent renewal
+    expect(localStorage.getItem('cba_clean_refresh_token')).toBe('stored-refresh');
+    // getToken should NOT have cleared refresh token
+    expect(service.getToken()).toBeNull();
+    expect(localStorage.getItem('cba_clean_refresh_token')).toBe('stored-refresh');
+  });
+
+  it('should decode base64url payload correctly', () => {
+    const payload = { roles: ['OPERATOR'], preferred_username: 'op', exp: Math.floor(Date.now() / 1000) + 3600 };
+    const json = JSON.stringify(payload);
+    // base64url encode
+    const b64 = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const token = `header.${b64}.sig`;
+    localStorage.setItem('cba_clean_access_token', token);
+    localStorage.setItem('cba_clean_expires_at', String(Date.now() + 3600000));
+    service.loadFromStorage();
+    expect(service.hasRole('OPERATOR')).toBe(true);
+    expect(service.getUsername()).toBe('op');
+  });
 });

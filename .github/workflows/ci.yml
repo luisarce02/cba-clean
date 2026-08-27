@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   report-service-test:
-    name: Report Service - Build and Test
+    name: report-service
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,7 +32,7 @@ jobs:
         run: ./mvnw -B test
 
   incident-service-test:
-    name: Incident Service - Build and Test
+    name: incident-service
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -51,3 +51,50 @@ jobs:
 
       - name: Build and run tests (Maven Wrapper)
         run: ./mvnw -B test
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/cba-clean-web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/cba-clean-web
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend/cba-clean-web
+        run: npm test -- --watch=false
+
+      - name: Build frontend (production)
+        working-directory: frontend/cba-clean-web
+        run: npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Retry only the Docker build for transient registry failures (e.g. Docker Hub 502 Bad Gateway
+      # while resolving nginx:1.27-alpine). The Dockerfile and image tags are valid – local
+      # `docker pull nginx:1.27-alpine` and `docker build` succeed. Real Dockerfile errors will
+      # still fail after 3 attempts and do not use continue-on-error.
+      - name: Build frontend Docker image
+        uses: Wandalen/wretry.action@v3
+        with:
+          attempt_limit: 3
+          attempt_delay: 15000
+          action: docker/build-push-action@v6
+          with: |
+            context: ./frontend/cba-clean-web
+            file: ./frontend/cba-clean-web/Dockerfile
+            push: false
+            load: true
+            tags: cbaclean-web:ci

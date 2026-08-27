@@ -106,6 +106,30 @@ export class OidcService {
     };
   }
 
+  async refreshTokens(
+    discovery: OidcDiscoveryDocument,
+    config: OidcConfiguration,
+    refreshToken: string,
+  ): Promise<AuthTokens> {
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: config.clientId,
+      refresh_token: refreshToken,
+    });
+
+    const response = await firstValueFrom(
+      this.http.post<TokenResponse>(discovery.token_endpoint, body.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }),
+    );
+
+    return {
+      accessToken: response.access_token,
+      expiresAt: Date.now() + response.expires_in * 1000,
+      refreshToken: response.refresh_token ?? refreshToken,
+    };
+  }
+
   getEndSessionUrl(
     discovery: OidcDiscoveryDocument,
     config: OidcConfiguration,
