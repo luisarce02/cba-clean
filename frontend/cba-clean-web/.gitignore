@@ -1,4 +1,4 @@
-# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# See https://help.github.com/articles/ignoring-files for more about ignoring files.
 
 # Compiled output
 /dist
@@ -10,6 +10,8 @@
 /node_modules
 npm-debug.log
 yarn-error.log
+yarn-debug.log*
+pnpm-debug.log*
 
 # IDEs and editors
 .idea/
@@ -20,17 +22,14 @@ yarn-error.log
 .settings/
 *.sublime-workspace
 
-# Visual Studio Code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/mcp.json
-.history/*
+# Visual Studio Code - all VS Code config stays local (portfolio: no IDE clutter in Git)
+.vscode/
+
+# History
+.history/
 
 # Miscellaneous
-/.angular/cache
+/.angular
 .sass-cache/
 /connect.lock
 /coverage
@@ -42,3 +41,13 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Environment files (src/environments/ is committed; local overrides must not be committed)
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Cache
+.cache/
+.parcel-cache/
