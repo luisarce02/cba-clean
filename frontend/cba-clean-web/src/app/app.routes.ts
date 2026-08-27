@@ -1,10 +1,9 @@
 import { Routes } from '@angular/router';
-import { homeRedirectGuard, reporterGuard, operatorGuard } from './core/guards/role.guard';
+import { reporterGuard, operatorGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   {
     path: '',
-    canActivate: [homeRedirectGuard],
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
   },
   {

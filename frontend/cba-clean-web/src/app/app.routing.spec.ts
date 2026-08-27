@@ -36,22 +36,28 @@ describe('App Routing - role based', () => {
     sessionStorage.clear();
   });
 
-  it('REPORTER navigating to / should redirect to /reports/new', async () => {
+  it('anonymous user navigating to / should stay on / (public home)', async () => {
+    await setup(null);
+    await router.navigateByUrl('/');
+    expect(router.url).toBe('/');
+  });
+
+  it('REPORTER navigating to / should stay on / (public home)', async () => {
     await setup(['REPORTER']);
     await router.navigateByUrl('/');
-    expect(router.url).toBe('/reports/new');
+    expect(router.url).toBe('/');
   });
 
-  it('OPERATOR navigating to / should redirect to /operator/dashboard', async () => {
+  it('OPERATOR navigating to / should stay on / (public home)', async () => {
     await setup(['OPERATOR']);
     await router.navigateByUrl('/');
-    expect(router.url).toBe('/operator/dashboard');
+    expect(router.url).toBe('/');
   });
 
-  it('REPORTER+OPERATOR navigating to / should redirect to /operator/dashboard', async () => {
+  it('REPORTER+OPERATOR navigating to / should stay on / (public home)', async () => {
     await setup(['REPORTER', 'OPERATOR']);
     await router.navigateByUrl('/');
-    expect(router.url).toBe('/operator/dashboard');
+    expect(router.url).toBe('/');
   });
 
   it('OPERATOR navigating to /reports/new should redirect to /operator/dashboard', async () => {
