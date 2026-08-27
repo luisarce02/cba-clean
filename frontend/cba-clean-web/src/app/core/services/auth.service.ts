@@ -10,7 +10,9 @@ const REFRESH_KEY = `${STORAGE_KEY_PREFIX}refresh_token`;
 const CODE_VERIFIER_KEY = `${STORAGE_KEY_PREFIX}code_verifier`;
 const STATE_KEY = `${STORAGE_KEY_PREFIX}oauth_state`;
 
-// Refresh 60s before expiry
+// Refresh 60s before expiry – used for on-demand checks (guard / 401), not background timer.
+// Background scheduleRefresh was removed: it extended Keycloak SSO idle indefinitely.
+// See docs/auth-lifecycle.md
 const REFRESH_BUFFER_MS = 60_000;
 
 @Injectable({ providedIn: 'root' })
@@ -26,7 +28,6 @@ export class AuthService {
   readonly isAuthenticated$ = this.authenticated$.asObservable();
 
   private refreshPromise: Promise<boolean> | null = null;
-  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private initPromise: Promise<void> | null = null;
   private initialized = false;
 
@@ -245,7 +246,6 @@ export class AuthService {
     this.accessToken = null;
     this.expiresAt = 0;
     this.refreshTokenValue = null;
-    this.clearRefreshTimer();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EXPIRES_KEY);
     localStorage.removeItem(REFRESH_KEY);
@@ -262,7 +262,8 @@ export class AuthService {
       localStorage.setItem(REFRESH_KEY, tokens.refreshToken);
     }
     this.authenticated$.next(true);
-    this.scheduleRefresh();
+    // No background scheduleRefresh – on-demand refresh via refreshIfNeeded() / 401 only.
+    // Background timer would reset Keycloak SSO idle on every 5 min and keep session alive indefinitely.
   }
 
   loadFromStorage(): void {
@@ -281,7 +282,6 @@ export class AuthService {
         this.accessToken = token;
         this.expiresAt = expiresAt;
         this.authenticated$.next(true);
-        this.scheduleRefresh();
       } else {
         // Expired: keep accessToken null but preserve refresh token for silent renew.
         // Do NOT clear refresh_token here – it is needed for tryRefresh.
@@ -290,7 +290,6 @@ export class AuthService {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(EXPIRES_KEY);
         this.authenticated$.next(false);
-        this.clearRefreshTimer();
         // refresh token stays in storage
         if (refresh) {
           this.refreshTokenValue = refresh;
@@ -305,34 +304,11 @@ export class AuthService {
       } else {
         this.authenticated$.next(false);
       }
-      this.clearRefreshTimer();
     }
   }
 
   private getStoredRefreshToken(): string | null {
     return this.refreshTokenValue ?? localStorage.getItem(REFRESH_KEY);
-  }
-
-  private scheduleRefresh(): void {
-    this.clearRefreshTimer();
-    if (!this.accessToken || !this.expiresAt) return;
-    const delay = this.expiresAt - Date.now() - REFRESH_BUFFER_MS;
-    const safeDelay = Math.max(0, delay);
-    // If already expiring soon, refresh shortly (1s) to avoid tight loops
-    const finalDelay = safeDelay === 0 ? 1000 : safeDelay;
-    // Don't schedule if delay is huge (e.g., > 1 hour) – still schedule though
-    this.refreshTimer = setTimeout(async () => {
-      if (this.getStoredRefreshToken()) {
-        await this.tryRefresh();
-      }
-    }, finalDelay);
-  }
-
-  private clearRefreshTimer(): void {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-      this.refreshTimer = null;
-    }
   }
 
   private decodePayload(token: string): Record<string, unknown> {
