@@ -175,4 +175,65 @@ describe('OidcService', () => {
     expect(tokens.expiresAt).toBeGreaterThan(Date.now());
     expect(tokens.refreshToken).toBe('test-refresh-token');
   });
+
+  it('should refresh tokens using refresh_token grant', async () => {
+    const discovery = {
+      issuer: 'http://localhost:8090/realms/cba-clean',
+      authorization_endpoint: 'http://localhost:8090/auth',
+      token_endpoint: 'http://localhost:8090/token',
+      end_session_endpoint: 'http://localhost:8090/logout',
+      jwks_uri: 'http://localhost:8090/certs',
+    };
+    const config = {
+      issuer: 'http://localhost:8090/realms/cba-clean',
+      clientId: 'cba-clean-web',
+      redirectUri: 'http://localhost:4200',
+      scope: 'openid',
+    };
+
+    const promise = service.refreshTokens(discovery, config, 'old-refresh');
+    const req = httpMock.expectOne('http://localhost:8090/token');
+    expect(req.request.headers.get('Content-Type')).toBe('application/x-www-form-urlencoded');
+    const body = req.request.body as string;
+    expect(body).toContain('grant_type=refresh_token');
+    expect(body).toContain('refresh_token=old-refresh');
+    req.flush({
+      access_token: 'refreshed-token',
+      token_type: 'Bearer',
+      expires_in: 300,
+      refresh_token: 'new-refresh',
+    });
+
+    const tokens = await promise;
+    expect(tokens.accessToken).toBe('refreshed-token');
+    expect(tokens.refreshToken).toBe('new-refresh');
+    expect(tokens.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it('should keep old refresh token if new one not returned', async () => {
+    const discovery = {
+      issuer: 'http://localhost:8090/realms/cba-clean',
+      authorization_endpoint: 'http://localhost:8090/auth',
+      token_endpoint: 'http://localhost:8090/token',
+      end_session_endpoint: 'http://localhost:8090/logout',
+      jwks_uri: 'http://localhost:8090/certs',
+    };
+    const config = {
+      issuer: 'http://localhost:8090/realms/cba-clean',
+      clientId: 'cba-clean-web',
+      redirectUri: 'http://localhost:4200',
+      scope: 'openid',
+    };
+
+    const promise = service.refreshTokens(discovery, config, 'keep-me');
+    const req = httpMock.expectOne('http://localhost:8090/token');
+    req.flush({
+      access_token: 'new-access',
+      token_type: 'Bearer',
+      expires_in: 300,
+    });
+
+    const tokens = await promise;
+    expect(tokens.refreshToken).toBe('keep-me');
+  });
 });

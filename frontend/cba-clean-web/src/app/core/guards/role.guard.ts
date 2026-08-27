@@ -3,17 +3,19 @@ import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 
 /**
- * Redirects unauthenticated or role-mismatched navigation to the appropriate
- * landing page. Keeps the Reporter page Reporter-only without showing the
- * misleading "required role (REPORTER)" message to OPERATOR users.
+ * Guards wait for auth initialization and attempt silent refresh before
+ * deciding. This prevents the race where "not initialized yet" is mistaken
+ * for "unauthenticated" and avoids the intermittent logout where navigation
+ * would redirect to login while a valid refresh token still exists.
  */
 
-export const reporterGuard: CanActivateFn = () => {
+export const reporterGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
+
+  await auth.refreshIfNeeded();
 
   // Not authenticated -> allow through so the page can show the login prompt.
-  // The component itself handles the unauthenticated UI.
   if (!auth.isAuthenticated()) {
     return true;
   }
@@ -22,23 +24,21 @@ export const reporterGuard: CanActivateFn = () => {
     return true;
   }
 
-  // Authenticated but without REPORTER -> OPERATOR-only user trying to access
-  // reporter-only flow. Redirect to operator dashboard instead of showing error.
+  // Authenticated but without REPORTER -> OPERATOR-only user
   if (auth.hasRole('OPERATOR')) {
     return router.createUrlTree(['/operator/dashboard']);
   }
 
-  // Authenticated with no known role -> redirect to home which will resolve.
   return router.createUrlTree(['/']);
 };
 
-export const operatorGuard: CanActivateFn = () => {
+export const operatorGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
+  await auth.refreshIfNeeded();
+
   if (!auth.isAuthenticated()) {
-    // Let authGuard or the target page handle unauthenticated; redirect to
-    // reporter landing which shows login prompt.
     return router.createUrlTree(['/reports/new']);
   }
 
@@ -46,7 +46,6 @@ export const operatorGuard: CanActivateFn = () => {
     return true;
   }
 
-  // Reporter-only user trying to access operator area -> redirect to reporter landing
   if (auth.hasRole('REPORTER')) {
     return router.createUrlTree(['/reports/new']);
   }
@@ -54,15 +53,16 @@ export const operatorGuard: CanActivateFn = () => {
   return router.createUrlTree(['/']);
 };
 
-export const homeRedirectGuard: CanActivateFn = () => {
+export const homeRedirectGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
+
+  await auth.refreshIfNeeded();
 
   if (!auth.isAuthenticated()) {
     return router.createUrlTree(['/reports/new']);
   }
 
-  // Prefer Operator dashboard when user has OPERATOR (covers OPERATOR and BOTH)
   if (auth.hasRole('OPERATOR')) {
     return router.createUrlTree(['/operator/dashboard']);
   }
@@ -71,14 +71,13 @@ export const homeRedirectGuard: CanActivateFn = () => {
     return router.createUrlTree(['/reports/new']);
   }
 
-  // Authenticated but no recognized role -> send to reports page which will show
-  // the role error in a controlled way, or to dashboard if we later generalize.
   return router.createUrlTree(['/reports/new']);
 };
 
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
+  await auth.refreshIfNeeded();
   if (auth.isAuthenticated()) {
     return true;
   }

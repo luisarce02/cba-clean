@@ -53,93 +53,92 @@ describe('Role Guards', () => {
   });
 
   describe('reporterGuard', () => {
-    it('should allow unauthenticated user (login prompt)', () => {
+    it('should allow unauthenticated user (login prompt)', async () => {
       clearToken();
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any)) as unknown;
       expect(result).toBe(true);
     });
 
-    it('should allow REPORTER', () => {
+    it('should allow REPORTER', async () => {
       setToken(['REPORTER']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any)) as unknown;
       expect(result).toBe(true);
     });
 
-    it('should allow user with both roles (REPORTER+OPERATOR)', () => {
+    it('should allow user with both roles (REPORTER+OPERATOR)', async () => {
       setToken(['REPORTER', 'OPERATOR']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any)) as unknown;
       expect(result).toBe(true);
     });
 
-    it('should redirect OPERATOR-only to /operator/dashboard', () => {
+    it('should redirect OPERATOR-only to /operator/dashboard', async () => {
       setToken(['OPERATOR']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => reporterGuard(null as any, null as any)) as unknown;
       expect(typeof result).not.toBe('boolean');
-      // UrlTree has toString containing the redirect
       expect((result as any).toString()).toContain('/operator/dashboard');
     });
   });
 
   describe('operatorGuard', () => {
-    it('should allow OPERATOR', () => {
+    it('should allow OPERATOR', async () => {
       setToken(['OPERATOR']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any)) as unknown;
       expect(result).toBe(true);
     });
 
-    it('should allow user with both roles', () => {
+    it('should allow user with both roles', async () => {
       setToken(['REPORTER', 'OPERATOR']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any)) as unknown;
       expect(result).toBe(true);
     });
 
-    it('should redirect REPORTER-only to /reports/new', () => {
+    it('should redirect REPORTER-only to /reports/new', async () => {
       setToken(['REPORTER']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/reports/new');
     });
 
-    it('should redirect unauthenticated to /reports/new', () => {
+    it('should redirect unauthenticated to /reports/new', async () => {
       clearToken();
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/reports/new');
     });
   });
 
   describe('homeRedirectGuard', () => {
-    it('should redirect unauthenticated to /reports/new', () => {
+    it('should redirect unauthenticated to /reports/new', async () => {
       clearToken();
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/reports/new');
     });
 
-    it('should redirect REPORTER to /reports/new', () => {
+    it('should redirect REPORTER to /reports/new', async () => {
       setToken(['REPORTER']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/reports/new');
     });
 
-    it('should redirect OPERATOR to /operator/dashboard', () => {
+    it('should redirect OPERATOR to /operator/dashboard', async () => {
       setToken(['OPERATOR']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/operator/dashboard');
     });
 
-    it('should redirect REPORTER+OPERATOR to /operator/dashboard (prefer operator)', () => {
+    it('should redirect REPORTER+OPERATOR to /operator/dashboard (prefer operator)', async () => {
       setToken(['REPORTER', 'OPERATOR']);
       authService.loadFromStorage();
-      const result = TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any));
+      const result = await TestBed.runInInjectionContext(() => homeRedirectGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/operator/dashboard');
     });
   });
