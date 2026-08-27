@@ -1,0 +1,38 @@
+<section class="operator-reports">
+  <h1>Reports</h1>
+  <p class="subtitle">Operational view of submitted citizen reports.</p>
+
+  @if (loading()) {
+    <p class="state-message">Loading reports…</p>
+  } @else if (error()) {
+    <div class="state-error">
+      <p>Unable to load reports. {{ error() }}</p>
+      <button type="button" class="btn btn-secondary" (click)="load()">Retry</button>
+    </div>
+  } @else if (reports().length === 0) {
+    <p class="state-message">No reports have been submitted yet.</p>
+  } @else {
+    <div class="report-list">
+      @for (report of reports(); track report.id) {
+        <div class="report-card">
+          <div class="report-header">
+            <span class="report-id">Report {{ report.id | slice:0:8 }}</span>
+            <span class="report-type">{{ report.type }}</span>
+          </div>
+          @if (report.description) {
+            <p class="report-desc">{{ report.description }}</p>
+          }
+          <div class="report-meta">
+            <span class="meta">Location: {{ report.location.latitude | number:'1.4-4' }}, {{ report.location.longitude | number:'1.4-4' }}</span>
+            @if (report.location.address) {
+              <span class="meta">Address: {{ report.location.address }}</span>
+            }
+            <span class="meta">Created: {{ report.createdAt | date:'mediumDate' }}</span>
+            <span class="meta">Status: {{ report.status }} • Priority: {{ report.priority }}</span>
+          </div>
+          <a [routerLink]="['/operator/reports', report.id]" class="btn btn-primary">View Details</a>
+        </div>
+      }
+    </div>
+  }
+</section>

@@ -6,7 +6,9 @@ import com.cbclean.report.domain.repository.ReportRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * PostgreSQL adapter for the domain {@link ReportRepository} port.
@@ -31,5 +33,11 @@ public class PostgresReportRepository implements ReportRepository {
     @Transactional(readOnly = true)
     public Optional<Report> findById(ReportId id) {
         return jpa.findById(id.value()).map(ReportPersistenceMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Report> findAll() {
+        return jpa.findAll().stream().map(ReportPersistenceMapper::toDomain).collect(Collectors.toList());
     }
 }

@@ -1,0 +1,45 @@
+<section class="report-detail">
+  <a routerLink="/operator/reports" class="back-link">← Back to Reports</a>
+
+  @if (loading()) {
+    <p class="state-message">Loading report…</p>
+  } @else if (error()) {
+    <div class="state-error"><p>{{ error() }}</p></div>
+  } @else if (report(); as r) {
+    <h1>Report {{ r.id | slice:0:8 }}</h1>
+
+    <div class="detail-grid">
+      <div class="field"><span class="label">Report ID</span><span class="value mono">{{ r.id }}</span></div>
+      <div class="field"><span class="label">Type</span><span class="value">{{ r.type }}</span></div>
+      <div class="field"><span class="label">Status</span><span class="value">{{ r.status }}</span></div>
+      <div class="field"><span class="label">Priority</span><span class="value">{{ r.priority }}</span></div>
+      <div class="field"><span class="label">Created</span><span class="value">{{ r.createdAt | date:'medium' }}</span></div>
+      <div class="field"><span class="label">Last Modified</span><span class="value">{{ r.lastModifiedAt | date:'medium' }}</span></div>
+      <div class="field"><span class="label">Location</span>
+        <span class="value">
+          {{ r.location.latitude | number:'1.4-4' }}, {{ r.location.longitude | number:'1.4-4' }}
+          @if (r.location.address) { — {{ r.location.address }} }
+        </span>
+      </div>
+      @if (r.description) {
+        <div class="field full"><span class="label">Description</span><span class="value">{{ r.description }}</span></div>
+      }
+      @if (r.reporter) {
+        <div class="field"><span class="label">Reporter</span><span class="value">{{ r.reporter.name || '—' }} @if (r.reporter.email) { ({{ r.reporter.email }}) } @if (r.reporter.phone) { — {{ r.reporter.phone }} }</span></div>
+      } @else {
+        <div class="field"><span class="label">Reporter</span><span class="value">Anonymous</span></div>
+      }
+      @if (r.photoIds?.length) {
+        <div class="field"><span class="label">Photos</span><span class="value">{{ r.photoIds.length }} attached</span></div>
+      }
+    </div>
+
+    @if (relatedIncidentId()) {
+      <div class="related">
+        <h2>Related Incident</h2>
+        <p>Report {{ r.id | slice:0:8 }} generated Incident {{ relatedIncidentId() | slice:0:8 }}</p>
+        <a [routerLink]="['/operator/incidents', relatedIncidentId()]" class="btn btn-primary">View Incident</a>
+      </div>
+    }
+  }
+</section>

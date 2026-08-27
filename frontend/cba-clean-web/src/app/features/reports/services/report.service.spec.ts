@@ -127,4 +127,24 @@ describe('ReportService', () => {
       { status: 404, statusText: 'Not Found' },
     );
   });
+
+  it('should retrieve reports list', () => {
+    service.getReports().subscribe((response) => {
+      expect(response.length).toBe(1);
+      expect(response[0].id).toBe('7f9c24e8-0b5a-4d1e-9f2a-3c6b8d7e1a45');
+    });
+
+    const req = httpMock.expectOne('http://localhost:8080/api/v1/reports');
+    expect(req.request.method).toBe('GET');
+    req.flush([mockReportResponse]);
+  });
+
+  it('should handle empty reports list', () => {
+    service.getReports().subscribe((response) => {
+      expect(response.length).toBe(0);
+    });
+
+    const req = httpMock.expectOne('http://localhost:8080/api/v1/reports');
+    req.flush([]);
+  });
 });

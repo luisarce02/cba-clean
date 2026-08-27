@@ -4,6 +4,7 @@ import com.cbclean.report.application.port.OutboxStore;
 import com.cbclean.report.application.port.ReportMetrics;
 import com.cbclean.report.application.port.UnitOfWork;
 import com.cbclean.report.application.report.get.GetReportUseCase;
+import com.cbclean.report.application.report.list.ListReportsUseCase;
 import com.cbclean.report.application.report.submit.SubmitReportUseCase;
 import com.cbclean.report.domain.repository.ReportRepository;
 import com.cbclean.report.infrastructure.transaction.SpringUnitOfWork;
@@ -41,5 +42,10 @@ public class ApplicationConfig {
     @Bean
     public GetReportUseCase getReportUseCase(ReportRepository reports) {
         return new GetReportUseCase(reports);
+    }
+
+    @Bean
+    public ListReportsUseCase listReportsUseCase(ReportRepository reports) {
+        return new ListReportsUseCase(reports);
     }
 }
