@@ -1,0 +1,388 @@
+<div class="home" data-testid="home-page">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-text">
+        <div class="eyebrow">Cochabamba, Bolivia · Independent engineering project</div>
+        <h1 id="hero-title" class="title">
+          <span class="kicker">CBA Clean</span>
+          Smarter waste reporting.<br>
+          <em>Better urban operations.</em>
+        </h1>
+        <p class="lead">
+          A microservices platform that connects citizen reports with an operational
+          workflow — designed around a real local problem to demonstrate production-oriented
+          backend practice.
+        </p>
+        <div class="ctas">
+          <a class="btn primary" routerLink="/reports/new" data-testid="cta-report">Report an Issue</a>
+          <a class="btn ghost" href="#arch" (click)="scrollTo('arch', $event)" data-testid="cta-explore">Explore architecture</a>
+        </div>
+        @if (isAuthenticated()) {
+          <p class="auth-hint" role="status">
+            @if (hasOperator()) { Signed in as operator — <a routerLink="/operator/dashboard">open dashboard</a> }
+            @else if (hasReporter()) { Signed in — <a routerLink="/reports/new">submit a report</a> }
+            @else { Signed in — <a routerLink="/reports/new">open workspace</a> }
+          </p>
+        }
+      </div>
+      <div class="hero-meta" aria-hidden="true">
+        <div class="meta-card">
+          <div class="meta-row"><span>Report → Event → Incident → Resolution</span></div>
+          <div class="meta-divider"></div>
+          <div class="meta-row small">Not an official municipal service · Portfolio prototype</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="section" aria-labelledby="purpose-title">
+      <div class="wrap purpose">
+        <div class="purpose-grid">
+          <div class="purpose-block">
+            <h2 id="purpose-title" class="h2">The problem</h2>
+            <p>
+              Overflowing containers and accumulated waste are easy for residents to spot,
+              but hard for operational teams to track without a reliable bridge between
+              <strong>citizen observations</strong> and <strong>operational action</strong>.
+              CBA Clean is inspired by this gap in Cochabamba, Bolivia.
+            </p>
+            <p class="muted">
+              This is an independent engineering project — it does not claim official use
+              by the municipality. Its value is as a design laboratory anchored in a real
+              community challenge.
+            </p>
+            <div class="flow-inline" aria-label="High-level lifecycle">
+              <span>Reporter</span><i aria-hidden="true"></i><span>Report</span><i aria-hidden="true"></i><span>Event</span><i aria-hidden="true"></i><span>Incident</span><i aria-hidden="true"></i><span>Operator</span><i aria-hidden="true"></i><span>Resolution</span>
+            </div>
+          </div>
+          <div class="purpose-block purpose-why">
+            <h2 class="h2">Why it was built</h2>
+            <p>
+              Instead of building another CRUD application, CBA Clean was designed around
+              a real operational workflow and used to explore
+              <strong>distributed systems, event-driven architecture, security, reliability, testing and CI/CD</strong>
+              with Java and Spring Boot.
+            </p>
+            <ul class="why-list">
+              <li><strong>Explore</strong> how software engineering can serve a local problem.</li>
+              <li><strong>Demonstrate</strong> production-oriented practices — not a tutorial.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE HORIZONTAL ARCHITECTURE -->
+    <section class="section section-arch" aria-labelledby="arch-title" id="arch">
+      <div class="wrap arch-wrap">
+        <div class="section-head">
+          <h2 id="arch-title" class="h2">Architecture — the complete flow</h2>
+          <p class="intro">
+            One horizontal diagram tells the whole story — reporter creation, event propagation and operator resolution
+            — exactly as it runs via <code>docker compose</code>.
+          </p>
+        </div>
+
+        <div class="arch-panel" data-testid="arch-panel" role="region" aria-label="Interactive horizontal architecture diagram">
+          <div class="arch-toolbar">
+            <div class="toolbar-left">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="toolbar-title">LEFT → RIGHT · Reporter → Resolved</span>
+              <span class="pattern-pill subtle">Clean Architecture · DDD</span>
+              <span class="active-label" aria-live="polite">
+                @if (!reducedMotion) {
+                  <span class="active-badge">ACTIVE FLOW</span>
+                  <span class="active-name">{{ stepLabels[steps[active()]] }}</span>
+                }
+              </span>
+            </div>
+            <div class="toolbar-right">
+              <span class="live" [class.on]="playing()" aria-live="polite">{{ playing() ? 'Live' : 'Paused' }}</span>
+              <button type="button" class="btn tiny" (click)="toggle()" [attr.aria-label]="playing() ? 'Pause animation' : 'Play animation'">
+                {{ playing() ? 'Pause' : 'Play' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="step-dots" role="tablist" aria-label="Flow steps">
+            @for (id of steps; track id; let i = $index) {
+              <button
+                type="button"
+                role="tab"
+                class="step-dot"
+                [class.active]="active() === i"
+                [attr.aria-selected]="active() === i"
+                [attr.aria-label]="stepLabels[id]"
+                (click)="goTo(i)"
+              ></button>
+            }
+          </div>
+
+          <!-- scroll container for desktop priority, mobile also -->
+          <div class="hscroll" tabindex="0" aria-label="Architecture diagram, scroll horizontally to see full flow">
+            <div class="hflow" data-testid="flow">
+              <!-- INFRA TOP: Security + Observability -->
+              <div class="infra-bar">
+                <div class="infra-group security" data-testid="node-keycloak">
+                  <div class="infra-kicker">Security</div>
+                  <div class="infra-row">
+                    <div class="infra-node">
+                      <strong>Keycloak 26</strong>
+                      <span>OIDC + PKCE S256</span>
+                      <span class="small">JWT RS256 · roles · aud</span>
+                    </div>
+                    <span class="infra-arrow" aria-hidden="true"></span>
+                    <div class="infra-node ghost">
+                      <strong>REPORTER</strong><span>submit reports</span>
+                      <strong style="margin-top:6px">OPERATOR</strong><span>manage incidents</span>
+                    </div>
+                  </div>
+                  <div class="decision" style="margin-top:8px"><strong>Why Keycloak?</strong> Centralized OIDC, RBAC, no passwords in app.</div>
+                </div>
+
+                <div class="infra-group observability">
+                  <div class="infra-kicker">Observability · cross-cutting</div>
+                  <div class="obs-line">
+                    <span>Actuator</span><span>Prometheus</span><span>Correlation IDs</span><span>Structured logs</span>
+                  </div>
+                  <div class="obs-note">X-Correlation-ID propagates from Nginx through RabbitMQ → Incident Service</div>
+                </div>
+              </div>
+
+              <!-- MAIN LANE — LEFT → RIGHT -->
+              <div class="lane" role="list">
+                <!-- Reporter -->
+                <div class="lane-node actor" [class.active]="isActive('reporter')" [class.past]="isPast('reporter')" role="listitem" id="node-reporter" data-testid="node-reporter">
+                  <div class="node-head">REPORTER</div>
+                  <div class="node-title">Citizen</div>
+                  <div class="node-sub">public entry</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 0" [class.active]="isConnActive(0)" aria-hidden="true">
+                  <span class="conn-label">HTTPS</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Angular -->
+                <div class="lane-node" [class.active]="isActive('angular')" [class.past]="isPast('angular')" role="listitem" data-testid="node-angular">
+                  <div class="node-head">Angular 21</div>
+                  <div class="node-title">Web app</div>
+                  <div class="node-sub">TypeScript · SPA</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 1" [class.active]="isConnActive(1)" aria-hidden="true">
+                  <span class="conn-label">SPA</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Nginx -->
+                <div class="lane-node" [class.active]="isActive('nginx')" [class.past]="isPast('nginx')" role="listitem" data-testid="node-nginx">
+                  <div class="node-head">Nginx</div>
+                  <div class="node-title">Reverse proxy</div>
+                  <div class="node-sub">/api · SPA fallback</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 2" [class.active]="isConnActive(2)" aria-hidden="true">
+                  <span class="conn-label">POST /api/v1/reports</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Report Service -->
+                <div class="lane-node svc" [class.active]="isActive('report-service')" [class.past]="isPast('report-service')" role="listitem" data-testid="node-report-service">
+                  <div class="node-head">Report Service</div>
+                  <div class="node-title">Spring Boot · Java 21</div>
+                  <div class="node-sub">:8080 · REST · Validation</div>
+                  <div class="decision small"><strong>Clean Arch + DDD</strong> core independent of infra</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 3" [class.active]="isConnActive(3)" aria-hidden="true">
+                  <span class="conn-label">SQL transaction</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- PostgreSQL -->
+                <div class="lane-node db" [class.active]="isActive('postgres')" [class.past]="isPast('postgres')" role="listitem" data-testid="node-postgres">
+                  <div class="db-shape" aria-hidden="true"></div>
+                  <div class="node-head">PostgreSQL 17</div>
+                  <div class="node-title">reports + outbox_events</div>
+                  <div class="node-sub">Flyway · one transaction</div>
+                  <div class="decision"><strong>Why PostgreSQL?</strong> Transactional consistency for Outbox.</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 4" [class.active]="isConnActive(4)" aria-hidden="true">
+                  <span class="conn-label">outbox_events</span>
+                  <span class="line dashed"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Outbox -->
+                <div class="lane-node svc dashed" [class.active]="isActive('outbox')" [class.past]="isPast('outbox')" role="listitem" data-testid="node-outbox">
+                  <div class="node-head">Outbox Publisher</div>
+                  <div class="node-title">poll · SKIP LOCKED</div>
+                  <div class="node-sub">PT5S · batch 20 · confirms</div>
+                  <div class="decision"><strong>Outbox Pattern</strong> DB write + event in same TX.</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 5" [class.active]="isConnActive(5)" aria-hidden="true">
+                  <span class="conn-label">report.created</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- RabbitMQ -->
+                <div class="lane-node mq" [class.active]="isActive('rabbitmq')" [class.past]="isPast('rabbitmq')" role="listitem" data-testid="node-rabbitmq">
+                  <div class="node-head">RabbitMQ 3.13</div>
+                  <div class="node-title">cba-clean.events</div>
+                  <div class="node-sub">topic · :5672 / :15672</div>
+                  <div class="decision"><strong>Why messaging?</strong> Decouples ingestion from processing.</div>
+                  <div class="decision small">Retry 2s→4s→8s · DLX → DLQ</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 6" [class.active]="isConnActive(6)" aria-hidden="true">
+                  <span class="conn-label">report.created</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Incident Service -->
+                <div class="lane-node svc teal" [class.active]="isActive('incident-service')" [class.past]="isPast('incident-service')" role="listitem" data-testid="node-incident-service">
+                  <div class="node-head">Incident Service</div>
+                  <div class="node-title">Spring Boot · Java 21</div>
+                  <div class="node-sub">:8081 · idempotent</div>
+                  <div class="decision"><strong>Idempotency — claim-first</strong> processed_events idempotent consumer.</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 7" [class.active]="isConnActive(7)" aria-hidden="true">
+                  <span class="conn-label">incident document</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- MongoDB -->
+                <div class="lane-node db" [class.active]="isActive('mongo')" [class.past]="isPast('mongo')" role="listitem" data-testid="node-mongo">
+                  <div class="db-shape" aria-hidden="true"></div>
+                  <div class="node-head">MongoDB 7</div>
+                  <div class="node-title">incidents + processed_events</div>
+                  <div class="node-sub">:27017</div>
+                  <div class="decision"><strong>Why MongoDB?</strong> Document lifecycle + flexible state.</div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 8" [class.active]="isConnActive(8)" aria-hidden="true">
+                  <span class="conn-label">incident NEW</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Operator -->
+                <div class="lane-node actor op" [class.active]="isActive('operator')" [class.past]="isPast('operator')" role="listitem" data-testid="node-operator">
+                  <div class="node-head">OPERATOR</div>
+                  <div class="node-title">Dashboard</div>
+                  <div class="node-sub">Angular · RBAC</div>
+                  <div class="op-flows">
+                    <span>GET /api/v1/incidents</span>
+                    <span>PATCH /&#123;id&#125;/status</span>
+                  </div>
+                </div>
+
+                <div class="lane-conn" [class.on]="active() > 9" [class.active]="isConnActive(9)" aria-hidden="true">
+                  <span class="conn-label">status transition</span>
+                  <span class="line"><span class="dot-m"></span></span>
+                </div>
+
+                <!-- Lifecycle -->
+                <div class="lane-node lifecycle" [class.active]="isActive('status')" role="listitem" data-testid="node-status">
+                  <div class="node-head">Incident lifecycle</div>
+                  <div class="lifecycle-chain" aria-label="Incident lifecycle">
+                    <span class="s">NEW</span><span class="a">→</span>
+                    <span class="s">ASSIGNED</span><span class="a">→</span>
+                    <span class="s">IN_PROGRESS</span><span class="a">→</span>
+                    <span class="s term">RESOLVED</span><span class="sep">/</span><span class="s term">CANCELLED</span>
+                  </div>
+                  <div class="node-sub">Terminal · no further transitions</div>
+                </div>
+              </div>
+
+              <!-- operator feedback path (lower) — visual return from Operator to Incident Service -->
+              <div class="feedback" aria-hidden="true">
+                <div class="feedback-label">Operator flow</div>
+                <svg viewBox="0 0 900 40" preserveAspectRatio="none" class="feedback-svg">
+                  <path d="M 760 10 H 640 Q 630 10 630 20 V 20 Q 630 30 620 30 H 160" fill="none" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+                  <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker></defs>
+                </svg>
+                <span class="feedback-tag">GET /incidents · PATCH /incidents/&#123;id&#125;/status</span>
+              </div>
+
+              <!-- bottom infra -->
+              <div class="ci-strip" data-testid="ci-strip" aria-label="CI pipeline">
+                <div class="ci-head">CI · protected main — not a runtime flow</div>
+                <div class="ci-track">
+                  <span class="ci-node">GitHub</span><span class="ci-arrow" aria-hidden="true"></span>
+                  <span class="ci-node">Pull Request</span><span class="ci-arrow" aria-hidden="true"></span>
+                  <span class="ci-node">Frontend Tests <small>Vitest</small></span>
+                  <span class="ci-node">Backend Tests <small>Maven · Testcontainers</small></span>
+                  <span class="ci-arrow" aria-hidden="true"></span>
+                  <span class="ci-node">Docker Build <small>nginx</small></span><span class="ci-arrow" aria-hidden="true"></span>
+                  <span class="ci-node ok">Required checks → main</span>
+                </div>
+                <p class="ci-meta">Workflow <code>.github/workflows/ci.yml</code> · PR + push to main. No deployment claimed.</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="arch-caption">
+            Reporter never writes an incident directly. <strong>POST /api/v1/reports</strong> commits <code>reports + outbox_events</code> atomically;
+            <code>report.created</code> via RabbitMQ opens the incident idempotently. Operator drives the lifecycle via
+            <code>GET</code> and <code>PATCH /api/v1/incidents/&#123;id&#125;/status</code>.
+          </p>
+
+          <details class="a11y-details">
+            <summary>Text version for assistive technology</summary>
+            <p>Left to right: Reporter submits via Angular 21 and Nginx to Report Service on 8080 which writes report and outbox event in one PostgreSQL transaction. Outbox publisher polls with SKIP LOCKED and waits for RabbitMQ publisher confirms on exchange cba-clean.events routing key report.created. RabbitMQ with retries 2s 4s 8s via DLX to DLQ delivers to Incident Service on 8081 which claims eventId in MongoDB processed_events and creates incident in MongoDB 7. Operator via Angular dashboard reads incidents via GET and updates status via PATCH through lifecycle NEW, ASSIGNED, IN_PROGRESS to RESOLVED or CANCELLED. Keycloak 26 provides OIDC PKCE and JWT with roles REPORTER and OPERATOR. Observability via Correlation IDs, Actuator and Prometheus. CI enforces tests and Docker build before merge to protected main.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section closing" aria-labelledby="demo-title">
+      <div class="wrap closing-grid">
+        <div>
+          <h2 id="demo-title" class="h2">What this project demonstrates</h2>
+          <p class="intro">
+            Built as a practical exploration of modern software engineering using
+            Java, Spring Boot, microservices, event-driven architecture, security,
+            automated testing and CI/CD.
+          </p>
+        </div>
+        <div>
+          <div class="chips" aria-label="Technologies used" data-testid="tech-chips">
+            <span>Java 21</span><span>Spring Boot</span><span>Angular 21</span><span>TypeScript</span>
+            <span>PostgreSQL 17</span><span>MongoDB 7</span><span>RabbitMQ 3.13</span>
+            <span>Keycloak 26</span><span>OAuth2 · OIDC · JWT · PKCE</span>
+            <span>Docker &amp; Compose</span><span>GitHub Actions</span>
+            <span>JUnit · Mockito · Testcontainers · Vitest</span>
+            <span>Actuator · Prometheus · Correlation IDs</span>
+          </div>
+          <div class="closing-ctas">
+            <a class="btn primary" routerLink="/reports/new">Report an Issue</a>
+            @if (hasOperator()) {
+              <a class="btn ghost" routerLink="/operator/dashboard">Operator dashboard</a>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div class="footer-brand">
+        <strong>CBA Clean</strong>
+        <span>Urban Waste Incident Management Platform — Cochabamba, Bolivia</span>
+        <span class="small">Independent portfolio project · Not an official municipal service</span>
+      </div>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub repository</a>
+        <a href="http://localhost:8080/swagger-ui.html" target="_blank" rel="noopener noreferrer">API docs</a>
+        <a href="#arch" (click)="scrollTo('arch', $event)">Architecture</a>
+      </nav>
+    </div>
+  </footer>
+</div>
