@@ -4,6 +4,25 @@ CBA Clean is a portfolio project for citizen waste reports: citizens submit
 reports (Report Service, PostgreSQL), which are published as integration events
 over RabbitMQ and turned into incidents (Incident Service, MongoDB).
 
+## Live Demo
+
+The application is deployed on Azure Container Apps:
+
+**https://cba-clean-web.delightfulbay-5c84ea15.centralus.azurecontainerapps.io/**
+
+Log in with one of the [development users](#development-users) (`reporter` /
+`reporter` or `operator` / `operator`) to try the reporter and operator flows.
+
+## Latest Release
+
+**[v1.0.0 — CBA Clean v1.0.0 — Production-Ready Full-Stack Waste Management Platform](https://github.com/luisarce02/cba-clean/releases/tag/v1.0.0)**
+
+First stable release: Java 21 + Spring Boot microservices, Angular frontend,
+Keycloak/OAuth2/OIDC authentication, PostgreSQL + MongoDB, RabbitMQ with SSL,
+Azure Container Apps deployed via Bicep IaC, and a GitHub Actions CI/CD
+pipeline (Azure OIDC, ACR image push, automated deployment, post-deployment
+smoke tests).
+
 ## Architecture at a glance
 
 ```
