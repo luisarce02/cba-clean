@@ -89,3 +89,20 @@ testem.log
 *.tmp
 *.temp
 .tmp/
+
+# Graphify / AI tooling artifacts (not part of the application)
+.claude/
+graphify-out/
+/CLAUDE.md
+/.mcp.json
+/.gitattributes
+
+# Azure CLI exploratory output / raw resource dumps (not reproducible IaC)
+*.token
+tok_op
+tok_rep
+web.json
+keycloak/containerapp.yaml
+
+# Bicep compiled output (regenerate via `az bicep build`)
+infra/main.json
