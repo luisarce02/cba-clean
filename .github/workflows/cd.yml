@@ -1,0 +1,214 @@
+name: CBA Clean CD
+
+# Runs after "CBA Clean CI" finishes successfully on main (workflow_run's `branches`
+# filter matches the triggering workflow's head branch, so pull_request-triggered CI
+# runs on feature branches never fire this). Reuses ci.yml's test jobs instead of
+# duplicating them - this workflow only builds images, pushes, and deploys.
+on:
+  workflow_run:
+    workflows: ["CBA Clean CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Verify CI success
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    outputs:
+      sha: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Record verified commit
+        run: echo "CI succeeded for ${{ github.event.workflow_run.head_sha }}"
+
+  build-and-push:
+    name: Build & push (${{ matrix.service }})
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        include:
+          - service: report-service
+            context: backend/report-service
+            dockerfile: backend/report-service/Dockerfile
+            image_repo: cba-clean/report-service
+          - service: incident-service
+            context: backend/incident-service
+            dockerfile: backend/incident-service/Dockerfile
+            image_repo: cba-clean/incident-service
+          - service: web
+            context: frontend/cba-clean-web
+            dockerfile: frontend/cba-clean-web/Dockerfile
+            image_repo: cba-clean/web
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login (AAD token - admin user is disabled on the registry)
+        run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ vars.ACR_LOGIN_SERVER }}/${{ matrix.image_repo }}:${{ needs.guard.outputs.sha }}
+
+  deploy:
+    name: Deploy (${{ matrix.service }})
+    needs: [guard, build-and-push]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      # Sequential: avoids simultaneous updates racing on the shared managed identity /
+      # Container Apps Environment and keeps failure logs easy to attribute to one app.
+      max-parallel: 1
+      matrix:
+        include:
+          - service: report-service
+            container_app: cba-clean-report-service
+            image_repo: cba-clean/report-service
+          - service: incident-service
+            container_app: cba-clean-incident-service
+            image_repo: cba-clean/incident-service
+          - service: web
+            container_app: cba-clean-web
+            image_repo: cba-clean/web
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name "${{ matrix.container_app }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ vars.ACR_LOGIN_SERVER }}/${{ matrix.image_repo }}:${{ needs.guard.outputs.sha }}"
+
+  smoke-test:
+    name: Post-deploy smoke tests
+    needs: [guard, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve app FQDNs
+        id: fqdns
+        run: |
+          set -euo pipefail
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          WEB_FQDN=$(az containerapp show -g "$RG" -n cba-clean-web --query properties.configuration.ingress.fqdn -o tsv)
+          REPORT_FQDN=$(az containerapp show -g "$RG" -n cba-clean-report-service --query properties.configuration.ingress.fqdn -o tsv)
+          echo "web_fqdn=$WEB_FQDN" >> "$GITHUB_OUTPUT"
+          echo "report_fqdn=$REPORT_FQDN" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for frontend to be reachable
+        run: |
+          set -euo pipefail
+          url="https://${{ steps.fqdns.outputs.web_fqdn }}/"
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo "000")
+            if [ "$code" = "200" ]; then echo "frontend reachable (HTTP $code)"; exit 0; fi
+            echo "attempt $i: frontend returned $code, retrying..."
+            sleep 10
+          done
+          echo "frontend did not become reachable" >&2
+          exit 1
+
+      - name: report-service health/readiness
+        run: |
+          set -euo pipefail
+          url="https://${{ steps.fqdns.outputs.report_fqdn }}/actuator/health"
+          for i in $(seq 1 12); do
+            body=$(curl -fsS "$url" || echo "")
+            if echo "$body" | grep -q '"status":"UP"'; then echo "report-service healthy"; exit 0; fi
+            echo "attempt $i: report-service not healthy yet, retrying..."
+            sleep 10
+          done
+          echo "report-service failed health check" >&2
+          exit 1
+
+      - name: incident-service health/readiness (via frontend proxy - internal ingress)
+        run: |
+          set -euo pipefail
+          url="https://${{ steps.fqdns.outputs.web_fqdn }}/incident-actuator/actuator/health"
+          for i in $(seq 1 12); do
+            body=$(curl -fsS "$url" || echo "")
+            if echo "$body" | grep -q '"status":"UP"'; then echo "incident-service healthy"; exit 0; fi
+            echo "attempt $i: incident-service not healthy yet, retrying..."
+            sleep 10
+          done
+          echo "incident-service failed health check" >&2
+          exit 1
+
+      - name: Verify new revisions are serving 100% traffic
+        run: |
+          set -euo pipefail
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          sha="${{ needs.guard.outputs.sha }}"
+          for app in cba-clean-report-service cba-clean-incident-service cba-clean-web; do
+            image=$(az containerapp revision list -g "$RG" -n "$app" \
+              --query "[?properties.trafficWeight==\`100\`] | [0].properties.template.containers[0].image" -o tsv)
+            echo "$app active revision image: $image"
+            case "$image" in
+              *":$sha") echo "$app is serving the newly deployed revision" ;;
+              *) echo "$app is NOT serving the expected image tag ($sha)" >&2; exit 1 ;;
+            esac
+          done
+
+      - name: Functional smoke test - protected endpoint requires auth
+        run: |
+          set -euo pipefail
+          url="https://${{ steps.fqdns.outputs.web_fqdn }}/api/v1/reports"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+          if [ "$code" = "401" ]; then
+            echo "protected endpoint correctly rejects unauthenticated request (HTTP $code)"
+          else
+            echo "expected HTTP 401 from unauthenticated request, got $code" >&2
+            exit 1
+          fi
