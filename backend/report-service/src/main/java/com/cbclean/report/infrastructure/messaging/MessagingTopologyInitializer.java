@@ -35,8 +35,7 @@ public class MessagingTopologyInitializer implements ApplicationRunner {
                     MessagingTopology.INCIDENT_REPORT_CREATED_QUEUE,
                     MessagingTopology.REPORT_CREATED_ROUTING_KEY);
         } catch (Exception ex) {
-            log.warn("RabbitMQ topology declaration deferred: broker not reachable yet ({})",
-                    ex.getMessage());
+            log.warn("RabbitMQ topology declaration deferred: broker not reachable yet", ex);
         }
     }
 }

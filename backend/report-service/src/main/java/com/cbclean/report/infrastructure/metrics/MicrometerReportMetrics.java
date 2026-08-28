@@ -31,6 +31,24 @@ public class MicrometerReportMetrics implements ReportMetrics {
 
     public MicrometerReportMetrics(MeterRegistry registry) {
         this.registry = registry;
+        // Eagerly register counters so /actuator/metrics/{name} returns 200 with 0
+        // before any reports have been submitted (otherwise actuator returns 404
+        // for unregistered meters, which the frontend surfaces as "metrics 404").
+        Counter.builder(REPORTS_CREATED)
+                .description("Successfully persisted reports")
+                .register(registry);
+        Counter.builder(REPORTS_FAILED)
+                .description("Failed report submissions")
+                .register(registry);
+        // Pre-register timer variants (success/failure) so the timer exists with 0 count
+        Timer.builder(CREATION_DURATION)
+                .description("Duration of complete report submission operations")
+                .tag("result", "success")
+                .register(registry);
+        Timer.builder(CREATION_DURATION)
+                .description("Duration of complete report submission operations")
+                .tag("result", "failure")
+                .register(registry);
     }
 
     @Override

@@ -1,0 +1,168 @@
+# Preserve original X-Forwarded-Proto from ACA external ingress (https).
+# Local Docker Compose has no X-Forwarded-Proto header → fallback to $scheme (http).
+# Must be in http context (this file is included inside http via conf.d).
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
+server {
+    listen 80;
+    server_name localhost;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Enable SNI for HTTPS upstreams (ACA internal.* and external). Required because
+    # Azure Container Apps Envoy terminates TLS with per-app certificates and
+    # closes handshakes without SNI. $proxy_host is dynamic from proxy_pass URL,
+    # so no hardcoded FQDNs; harmless for http:// upstreams (local Compose).
+    proxy_ssl_server_name on;
+    proxy_ssl_name $proxy_host;
+
+    # Use HTTP/1.1 for upstream keepalive and h2c negotiation (ACA transport Auto).
+    # Required for ACA Envoy internal ingress (allowInsecure false) which otherwise
+    # returns 426 Upgrade Required with HTTP/1.0 default.
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
+    # --- Upstreams injected at container startup via envsubst ---
+    # Docker Compose defaults are injected via Dockerfile ENV.
+    # In Azure Container Apps these are overridden with full ACA FQDNs:
+    #   REPORT_SERVICE_URL=https://report-service.<env>.azurecontainerapps.io
+    #   INCIDENT_SERVICE_URL=https://incident-service.<env>.azurecontainerapps.io
+    #   KEYCLOAK_URL=https://keycloak.<env>.azurecontainerapps.io
+    # No Docker embedded DNS resolver (127.0.0.11) is used; upstreams are
+    # resolved at startup after envsubst produces nginx.conf.
+
+    # --- Reverse proxy for backend APIs (same-origin support) ---
+    location ~ ^/api/v1/incidents {
+        proxy_pass ${INCIDENT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+    }
+
+    location ~ ^/api/v1/reports {
+        proxy_pass ${REPORT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+    }
+
+    location /api/ {
+        proxy_pass ${REPORT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+    }
+
+    # Actuator endpoints for metrics — routed by metric name prefix
+    location ~ ^/actuator/metrics/cbaclean\.reports {
+        proxy_pass ${REPORT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    location ~ ^/actuator/metrics/cbaclean\.report {
+        proxy_pass ${REPORT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    location ~ ^/actuator/metrics/cbaclean\.outbox {
+        proxy_pass ${REPORT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    location ~ ^/actuator/metrics/cbaclean\.incidents {
+        proxy_pass ${INCIDENT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    location ~ ^/actuator/metrics/cbaclean\.incident {
+        proxy_pass ${INCIDENT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    # Dedicated incident actuator prefix for generic metrics (http.server.requests,
+    # process.uptime) and prometheus when caller needs to address incident-service
+    # explicitly. Frontend MetricsService uses /incident-actuator for incident service
+    # when apiBaseUrl and incidentApiBaseUrl collapse to same-origin.
+    # Request /incident-actuator/actuator/metrics/... is rewritten to /actuator/metrics/...
+    # before proxying to incident-service.
+    location ~ ^/incident-actuator/(.*) {
+        rewrite ^/incident-actuator/(.*) /$1 break;
+        proxy_pass ${INCIDENT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    # Generic actuator fallback (report-service hosts health/info; also serves
+    # /actuator/metrics, /actuator/prometheus, http.server.requests, process.uptime
+    # for report-service). Incident generic metrics should use /incident-actuator/.
+    location /actuator/ {
+        proxy_pass ${REPORT_SERVICE_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Correlation-ID $http_x_correlation_id;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    # Keycloak OIDC - support same-origin proxy as well as direct
+    location /realms/ {
+        proxy_pass ${KEYCLOAK_URL};
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    }
+
+    # Prevent stray OIDC discovery at root from falling through to SPA (was returning index.html)
+    location ~ ^/\.well-known {
+        return 404;
+    }
+
+    # SPA fallback - must be last, only for Angular routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Never cache index.html or runtime env.js
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
+        try_files $uri =404;
+    }
+
+    location = /env.js {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
+    }
+}

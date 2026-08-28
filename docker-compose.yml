@@ -134,6 +134,14 @@ services:
       context: ./frontend/cba-clean-web
       dockerfile: Dockerfile
     container_name: cbaclean-web
+    environment:
+      REPORT_SERVICE_URL: ${REPORT_SERVICE_URL:-http://report-service:8080}
+      INCIDENT_SERVICE_URL: ${INCIDENT_SERVICE_URL:-http://incident-service:8081}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+      FRONTEND_API_BASE_URL: ${FRONTEND_API_BASE_URL:-/api/v1}
+      FRONTEND_INCIDENT_API_BASE_URL: ${FRONTEND_INCIDENT_API_BASE_URL:-/api/v1}
+      FRONTEND_KEYCLOAK_ISSUER: ${FRONTEND_KEYCLOAK_ISSUER:-http://localhost:8090/realms/cba-clean}
+      FRONTEND_KEYCLOAK_REDIRECT_URI: ${FRONTEND_KEYCLOAK_REDIRECT_URI:-http://localhost:4200}
     ports:
       - "4200:80"
 
