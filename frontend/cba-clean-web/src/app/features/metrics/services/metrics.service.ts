@@ -32,7 +32,16 @@ export class MetricsService {
   private get incidentActuatorBase(): string {
     const base = (environment as any).incidentApiBaseUrl as string | undefined;
     const url = base ?? environment.apiBaseUrl;
-    return url.replace(/\/api\/v1\/?$/, '');
+    const stripped = url.replace(/\/api\/v1\/?$/, '');
+    // In production both apiBaseUrl and incidentApiBaseUrl collapse to same-origin
+    // ("" after stripping "/api/v1"). Generic metrics (http.server.requests,
+    // process.uptime) have identical names in both services so Nginx cannot route
+    // them by metric name alone. Use dedicated /incident-actuator prefix which
+    // Nginx proxies to incident-service; dev (http://localhost:8081) keeps direct FQDN.
+    if (stripped === '' || stripped === '/') {
+      return '/incident-actuator';
+    }
+    return stripped;
   }
 
   getMetric(service: 'report' | 'incident', name: string): Observable<ActuatorMetricResponse> {
