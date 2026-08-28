@@ -33,6 +33,10 @@ jobs:
     needs: guard
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Required: the Azure federated credential's subject is
+    # repo:luisarce02/cba-clean:environment:production, so azure/login only
+    # gets a matching OIDC token when the job runs under this environment.
+    environment: production
     permissions:
       contents: read
       id-token: write
