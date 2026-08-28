@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "env": { "value": "prod" },
+    "location": { "value": "centralus" },
+    "baseName": { "value": "cbaclean" },
+    "frontendOrigin": { "value": "https://cba-clean-web.delightfulbay-5c84ea15.centralus.azurecontainerapps.io" },
+    "keycloakIssuerUri": { "value": "https://cba-clean-keycloak.delightfulbay-5c84ea15.centralus.azurecontainerapps.io/realms/cba-clean" },
+    "jwtAudience": { "value": "cba-clean-web" },
+    "webImage": { "value": "acrcbacleanprodup2zr7il.azurecr.io/cba-clean/web:v4" },
+    "reportServiceImage": { "value": "acrcbacleanprodup2zr7il.azurecr.io/cba-clean/report-service:v4" },
+    "incidentServiceImage": { "value": "acrcbacleanprodup2zr7il.azurecr.io/cba-clean/incident-service:v4" },
+    "keycloakImage": { "value": "acrcbacleanprodup2zr7il.azurecr.io/cba-clean/keycloak:26.1-realm-v2" },
+    "backendMinReplicas": { "value": 1 },
+    "maxReplicas": { "value": 1 },
+    "rabbitmqHost": { "value": "REPLACE_WITH_CLOUDAMQP_HOST" },
+    "rabbitmqPort": { "value": 5671 },
+    "rabbitmqUsername": { "value": "REPLACE_WITH_CLOUDAMQP_USERNAME" },
+    "rabbitmqVirtualHost": { "value": "REPLACE_WITH_CLOUDAMQP_VHOST" },
+    "rabbitmqSslEnabled": { "value": true },
+    "mongoDatabase": { "value": "cbaclean" },
+    "keycloakDbName": { "value": "keycloak" }
+  }
+}
