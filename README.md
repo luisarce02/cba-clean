@@ -10,8 +10,12 @@ The application is deployed on Azure Container Apps:
 
 **https://cba-clean-web.delightfulbay-5c84ea15.centralus.azurecontainerapps.io/**
 
-Log in with one of the [development users](#development-users) (`reporter` /
-`reporter` or `operator` / `operator`) to try the reporter and operator flows.
+Login is restricted rather than open to the public, to keep the Azure
+compute/database costs and RabbitMQ/Mongo usage on this portfolio deployment
+under control and to prevent abuse of the report/incident endpoints. If
+you'd like to try the reporter or operator flow, please
+[open an issue](https://github.com/luisarce02/cba-clean/issues) or contact
+the repository owner to request demo credentials.
 
 ## Latest Release
 
@@ -39,6 +43,23 @@ citizen -> Report Service (PostgreSQL)
            Incident Service (MongoDB) - consumes report.created,
            opens incidents, idempotent via processed_events claims
 ```
+
+## Architecture
+
+The diagrams below are generated from the project's actual architecture
+(queried via the repository's knowledge graph and cross-checked against
+`docker-compose.yml`, the CI/CD workflows, and the Azure/Bicep infra configs),
+not hand-drawn.
+
+**System architecture** - application, infrastructure, databases, messaging,
+authentication, and the CI/CD pipeline:
+
+![CBA Clean system architecture](docs/architecture/system-architecture.svg)
+
+**Runtime & deployment flow** - the report -> RabbitMQ -> incident flow and the
+GitHub Actions -> ACR -> Azure Container Apps deployment flow, animated:
+
+![CBA Clean architecture flow](docs/architecture/flow-animation.gif)
 
 ## Transactional Outbox
 

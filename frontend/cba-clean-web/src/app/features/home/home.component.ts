@@ -1,6 +1,7 @@
 import { Component, inject, computed, signal, OnInit, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-home',
@@ -11,6 +12,9 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class HomeComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
+
+  /** API docs link is a local development convenience only — hidden in production. */
+  readonly isProduction = environment.production;
 
   readonly isAuthenticated = computed(() => this.auth.isAuthenticated());
   readonly hasReporter = computed(() => this.auth.hasRole('REPORTER'));

@@ -1,0 +1,232 @@
+#
+# CBA Clean — Static system architecture
+#
+# Source of truth for every component/relationship below: graphify-out/graph.json
+# (queried via `graphify query`), cross-checked against docker-compose.yml,
+# docs/azure-deployment.md, infra/containerapps*.bicep|json, and
+# .github/workflows/{ci,cd}.yml. Represents the Azure "target architecture"
+# (docs/azure-deployment.md §2) that the docker-compose stack maps onto.
+#
+# Render:
+#   d2 system-architecture.d2 system-architecture.svg --layout elk --theme 0 --pad 40
+#   d2 system-architecture.d2 system-architecture.png --layout elk --theme 0 --pad 40
+#
+
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 0
+    pad: 80
+  }
+}
+
+title: |md
+  # CBA Clean — System Architecture
+  Angular · Spring Boot (Report / Incident) · PostgreSQL · MongoDB · RabbitMQ · Keycloak · Azure Container Apps
+| {near: top-center; style.font-size: 24}
+
+# ---- style classes -------------------------------------------------------
+
+classes: {
+  app: {
+    style: {
+      fill: "#2563eb"
+      font-color: "#ffffff"
+      stroke: "#1e3a8a"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+    }
+  }
+  infra: {
+    style: {
+      fill: "#0f172a"
+      font-color: "#ffffff"
+      stroke: "#334155"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+    }
+  }
+  db: {
+    style: {
+      fill: "#059669"
+      font-color: "#ffffff"
+      stroke: "#065f46"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+    }
+  }
+  mq: {
+    style: {
+      fill: "#ea580c"
+      font-color: "#ffffff"
+      stroke: "#9a3412"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+    }
+  }
+  auth: {
+    style: {
+      fill: "#7c3aed"
+      font-color: "#ffffff"
+      stroke: "#4c1d95"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+    }
+  }
+  cicd: {
+    style: {
+      fill: "#334155"
+      font-color: "#ffffff"
+      stroke: "#0f172a"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+    }
+  }
+}
+
+# ---- external actor --------------------------------------------------------
+
+user: External User\n(Citizen reporter / Operator) {
+  shape: person
+  style: {
+    fill: "#f59e0b"
+    font-color: "#1f2937"
+    stroke: "#b45309"
+    stroke-width: 2
+  }
+}
+
+# ---- source control + CI/CD boundary ---------------------------------------
+
+devops: "GitHub  +  GitHub Actions  (CI / CD)" {
+  style: {
+    stroke: "#64748b"
+    stroke-dash: 4
+    fill: "#f8fafc"
+    stroke-width: 2
+  }
+
+  direction: down
+
+  repo: GitHub Repository\ncba-clean (main) {
+    class: cicd
+  }
+
+  ci: "CI workflow (ci.yml)\nreport-service: mvnw test\nincident-service: mvnw test\nfrontend: npm test + npm run build\n+ docker build (frontend image)" {
+    class: cicd
+  }
+
+  oidc: Azure OIDC Federated Credential\n(azure/login, no stored secrets) {
+    class: auth
+  }
+
+  cd: "CD workflow (cd.yml)\ntriggered by CI success on main\nbuild + push 3 images (matrix)\naz containerapp update (sequential)\n+ post-deploy smoke tests" {
+    class: cicd
+  }
+
+  repo -> ci: "push / PR"
+  ci -> cd: "workflow_run:\nCI success on main"
+  cd -> oidc: "id-token: write"
+}
+
+acr: Azure Container Registry\n(cba-clean/report-service,\ncba-clean/incident-service,\ncba-clean/web) {
+  class: infra
+}
+
+docker: Docker\n(multi-stage builds:\nMaven+Temurin 21 · Node 22+Nginx) {
+  class: infra
+}
+
+devops.cd -> docker: "build"
+docker -> acr: "push image\n(tag = commit SHA)"
+
+# ---- Azure Container Apps environment (application + auth) -----------------
+
+azure: "Azure Container Apps Environment  (centralus)" {
+  style: {
+    stroke: "#1d4ed8"
+    stroke-dash: 4
+    fill: "#eff6ff"
+    stroke-width: 2
+  }
+
+  direction: down
+
+  frontend: Angular Frontend\n(Nginx · ingress: external\nHTTPS, managed cert) {
+    class: app
+  }
+
+  keycloak: Keycloak 26\n(realm: cba-clean\nPKCE S256, JWT issuer) {
+    class: auth
+  }
+
+  report: Report Service\n(Spring Boot · Java 21\ningress: internal) {
+    class: app
+  }
+
+  incident: Incident Service\n(Spring Boot · Java 21\ningress: internal) {
+    class: app
+  }
+}
+
+acr -> azure: "pull \& deploy all 3 images\n(managed identity, acrpull role)" {style: {stroke: "#334155"; stroke-width: 2}}
+
+# ---- managed data + messaging boundary --------------------------------------
+
+data: "Managed Data \& Messaging  (external services)" {
+  style: {
+    stroke: "#059669"
+    stroke-dash: 4
+    fill: "#f0fdf4"
+    stroke-width: 2
+  }
+
+  postgres: PostgreSQL\n(Flexible Server)\ntables: reports, outbox_events {
+    class: db
+  }
+
+  mongo: MongoDB Atlas\ncollections: incidents,\nprocessed_events {
+    class: db
+  }
+
+  rabbitmq: RabbitMQ (CloudAMQP)\ntopic: cba-clean.events\n+ retry queues + DLQ {
+    class: mq
+  }
+}
+
+# ---- user traffic + auth flow -----------------------------------------------
+
+user -> azure.frontend: "HTTPS 443" {style: {stroke: "#f59e0b"; stroke-width: 3}}
+user -> azure.keycloak: "OIDC PKCE (S256)" {style: {stroke: "#7c3aed"; stroke-width: 3}}
+azure.frontend -> azure.report: "/api/v1/reports"
+azure.frontend -> azure.incident: "/api/v1/incidents"
+azure.report -> azure.keycloak: "validate JWT\n(JWKS, roles claim)" {style: {stroke: "#7c3aed"; stroke-dash: 2}}
+azure.incident -> azure.keycloak: "validate JWT\n(JWKS, roles claim)" {style: {stroke: "#7c3aed"; stroke-dash: 2}}
+
+# ---- Report -> RabbitMQ -> Incident event flow ------------------------------
+
+azure.report -> data.postgres: "write report + outbox (1 tx)" {style: {stroke: "#059669"; stroke-width: 2}}
+azure.report -> data.rabbitmq: "poll 5s, publish report.created" {style: {stroke: "#ea580c"; stroke-width: 3}}
+data.rabbitmq -> azure.incident: "consume report.created\n(retry 2s/4s/8s -> DLQ)" {style: {stroke: "#ea580c"; stroke-width: 3}}
+azure.incident -> data.mongo: "idempotent write\n(processed_events dedup)" {style: {stroke: "#059669"; stroke-width: 2}}
+
+# ---- legend ------------------------------------------------------------------
+
+legend: Legend {
+  near: top-right
+  style: {
+    fill: "#ffffff"
+    stroke: "#cbd5e1"
+  }
+  application: Application {class: app}
+  infrastructure: Infrastructure / CI-CD {class: infra}
+  database: Database {class: db}
+  messaging: Messaging {class: mq}
+  authentication: Authentication {class: auth}
+}
