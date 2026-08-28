@@ -27,6 +27,16 @@ public class OutboxMetrics {
         Gauge.builder(EVENTS_PENDING, pending, AtomicLong::get)
                 .description("Outbox events currently awaiting publication")
                 .register(registry);
+        // Eagerly register tagged counters so /actuator/metrics/{name} exists
+        // before first publish (otherwise 404 until first event).
+        Counter.builder(EVENTS_PUBLISHED)
+                .description("Outbox events successfully confirmed by RabbitMQ")
+                .tag("eventType", "ReportCreatedEvent")
+                .register(registry);
+        Counter.builder(EVENTS_PUBLISH_FAILURES)
+                .description("Failed outbox publication attempts")
+                .tag("eventType", "ReportCreatedEvent")
+                .register(registry);
     }
 
     /** Refreshes the pending gauge after a polling round. */

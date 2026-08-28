@@ -37,6 +37,45 @@ public class IncidentMetrics {
 
     public IncidentMetrics(MeterRegistry registry) {
         this.registry = registry;
+        // Eagerly register counters so /actuator/metrics/* returns 200 with 0
+        // before any events have been processed. Without this, fetching an
+        // un-incidented counter yields 404 from Actuator (metrics not found).
+        counter(INCIDENTS_CREATED, "Successfully persisted incidents");
+        counter(INCIDENTS_FAILED, "Failed incident creations");
+        // Counters with tags are created via builder + tag; pre-register one
+        // instance per tag combination so the meter exists with 0 before traffic.
+        Counter.builder(EVENTS_PROCESSED)
+                .description("Integration events successfully processed")
+                .tag("eventType", "ReportCreatedEvent")
+                .register(registry);
+        Counter.builder(EVENTS_DUPLICATES)
+                .description("Duplicate events skipped by idempotency")
+                .tag("eventType", "ReportCreatedEvent")
+                .register(registry);
+        Counter.builder(EVENTS_RETRIES)
+                .description("Events scheduled for a bounded retry")
+                .tag("eventType", "ReportCreatedEvent")
+                .register(registry);
+        Counter.builder(EVENTS_DEAD_LETTERED)
+                .description("Events routed to the dead letter queue")
+                .tag("eventType", "ReportCreatedEvent")
+                .tag("reason", REASON_RETRY_EXHAUSTED)
+                .register(registry);
+        Counter.builder(EVENTS_DEAD_LETTERED)
+                .description("Events routed to the dead letter queue")
+                .tag("eventType", "ReportCreatedEvent")
+                .tag("reason", REASON_TRANSLATION_FAILURE)
+                .register(registry);
+        Timer.builder(PROCESSING_DURATION)
+                .description("Duration of ReportCreatedEvent processing attempts")
+                .tag("eventType", "ReportCreatedEvent")
+                .tag("result", "success")
+                .register(registry);
+        Timer.builder(PROCESSING_DURATION)
+                .description("Duration of ReportCreatedEvent processing attempts")
+                .tag("eventType", "ReportCreatedEvent")
+                .tag("result", "failure")
+                .register(registry);
     }
 
     /**
