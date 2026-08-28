@@ -61,9 +61,6 @@ GitHub Actions -> ACR -> Azure Container Apps deployment flow, animated:
 
 ![CBA Clean architecture flow](docs/architecture/flow-animation.gif)
 
-See [`docs/architecture/README.md`](docs/architecture/README.md) for the D2
-source and the commands to reproduce or edit both diagrams.
-
 ## Transactional Outbox
 
 **Why the direct approach was unsafe.** Previously the Report Service saved the
