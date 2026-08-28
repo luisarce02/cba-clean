@@ -1,0 +1,165 @@
+#
+# CBA Clean — Animated architecture flow
+#
+# Two flows, revealed step by step over a FIXED layout (all nodes and edges
+# are declared once in step 1, muted; later steps only re-style an edge from
+# muted -> highlighted, so nothing jumps position between frames):
+#   1) Runtime request flow:  User -> Angular -> Report Service -> PostgreSQL/Outbox
+#      -> RabbitMQ -> Incident Service -> MongoDB
+#   2) Deployment flow:       GitHub -> GitHub Actions -> ACR -> Azure Container Apps
+#
+# Render (animated SVG, self-contained, loops forever):
+#   d2 --animate-interval 1600 flow-animation.d2 flow-animation-animated.svg --layout elk --theme 0
+#
+# Render (one PNG per step: flow-animation/1.png .. flow-animation/11.png):
+#   d2 flow-animation.d2 flow-animation.png --layout elk --theme 0
+#
+# Assemble the per-step PNGs into a looping GIF (see render.py in this folder):
+#   python render.py
+#
+
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 0
+    pad: 50
+  }
+}
+
+classes: {
+  app: {
+    style: {
+      fill: "#2563eb"
+      font-color: "#ffffff"
+      stroke: "#1e3a8a"
+      stroke-width: 2
+      border-radius: 10
+    }
+  }
+  infra: {
+    style: {
+      fill: "#0f172a"
+      font-color: "#ffffff"
+      stroke: "#334155"
+      stroke-width: 2
+      border-radius: 10
+    }
+  }
+  db: {
+    style: {
+      fill: "#059669"
+      font-color: "#ffffff"
+      stroke: "#065f46"
+      stroke-width: 2
+      border-radius: 10
+    }
+  }
+  mq: {
+    style: {
+      fill: "#ea580c"
+      font-color: "#ffffff"
+      stroke: "#9a3412"
+      stroke-width: 2
+      border-radius: 10
+    }
+  }
+  muted: {
+    style: {
+      stroke: "#cbd5e1"
+      stroke-width: 1
+    }
+  }
+}
+
+steps: {
+
+  1: {
+    title: |md
+      # CBA Clean — Runtime Flow
+      User -> Angular -> Report Service -> PostgreSQL/Outbox -> RabbitMQ -> Incident Service -> MongoDB
+    | {near: top-center}
+
+    # Both flows and every edge are declared up front (muted) so the ELK
+    # layout is computed once and stays IDENTICAL for every later step -
+    # later steps only recolor an edge, they never add/move a node.
+
+    runtime: "Runtime request flow" {
+      style.fill: "#eff6ff"
+      style.stroke: "#1d4ed8"
+      style.stroke-dash: 4
+
+      user: External\nUser {shape: person; style.fill: "#f59e0b"}
+      frontend: Angular\nFrontend {class: app}
+      report: Report\nService {class: app}
+      postgres: PostgreSQL\n(outbox) {class: db}
+      rabbitmq: RabbitMQ\n(cba-clean.events) {class: mq}
+      incident: Incident\nService {class: app}
+      mongo: MongoDB\n(incidents) {class: db}
+
+      user -> frontend: "1. HTTPS" {class: muted}
+      frontend -> report: "2. POST /api/v1/reports" {class: muted}
+      report -> postgres: "3. write report + outbox_event\n(1 transaction)" {class: muted}
+      report -> rabbitmq: "4. OutboxPublisher polls (5s)\npublishes report.created" {class: muted}
+      rabbitmq -> incident: "5. @RabbitListener consumes\n(retry 2s/4s/8s -> DLQ)" {class: muted}
+      incident -> mongo: "6. idempotent write\n(processed_events dedup)" {class: muted}
+    }
+
+    deploy: "CI/CD deployment flow" {
+      style.fill: "#f8fafc"
+      style.stroke: "#334155"
+      style.stroke-dash: 4
+
+      github: GitHub\n(push to main) {class: infra}
+      actions: GitHub\nActions {class: infra}
+      acr: Azure Container\nRegistry {class: infra}
+      aca: Azure Container\nApps {class: app}
+
+      github -> actions: "1. CI: test all 3 services" {class: muted}
+      actions -> acr: "2. CD: build + push images\n(OIDC, no stored secrets)" {class: muted}
+      acr -> aca: "3. az containerapp update\n(sequential, then smoke test)" {class: muted}
+    }
+  }
+
+  2: {
+    (runtime.user -> runtime.frontend)[0].style: {stroke: "#f59e0b"; stroke-width: 3}
+  }
+
+  3: {
+    (runtime.frontend -> runtime.report)[0].style: {stroke: "#2563eb"; stroke-width: 3}
+  }
+
+  4: {
+    (runtime.report -> runtime.postgres)[0].style: {stroke: "#059669"; stroke-width: 3}
+  }
+
+  5: {
+    (runtime.report -> runtime.rabbitmq)[0].style: {stroke: "#ea580c"; stroke-width: 3}
+  }
+
+  6: {
+    (runtime.rabbitmq -> runtime.incident)[0].style: {stroke: "#ea580c"; stroke-width: 3}
+  }
+
+  7: {
+    (runtime.incident -> runtime.mongo)[0].style: {stroke: "#059669"; stroke-width: 3}
+  }
+
+  8: {
+    title: |md
+      # CBA Clean — Deployment Flow
+      GitHub -> GitHub Actions -> Azure Container Registry -> Azure Container Apps
+    | {near: top-center}
+  }
+
+  9: {
+    (deploy.github -> deploy.actions)[0].style: {stroke: "#334155"; stroke-width: 3}
+  }
+
+  10: {
+    (deploy.actions -> deploy.acr)[0].style: {stroke: "#334155"; stroke-width: 3}
+  }
+
+  11: {
+    (deploy.acr -> deploy.aca)[0].style: {stroke: "#2563eb"; stroke-width: 3}
+  }
+}

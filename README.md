@@ -44,6 +44,26 @@ citizen -> Report Service (PostgreSQL)
            opens incidents, idempotent via processed_events claims
 ```
 
+## Architecture
+
+The diagrams below are generated from the project's actual architecture
+(queried via the repository's knowledge graph and cross-checked against
+`docker-compose.yml`, the CI/CD workflows, and the Azure/Bicep infra configs),
+not hand-drawn.
+
+**System architecture** - application, infrastructure, databases, messaging,
+authentication, and the CI/CD pipeline:
+
+![CBA Clean system architecture](docs/architecture/system-architecture.svg)
+
+**Runtime & deployment flow** - the report -> RabbitMQ -> incident flow and the
+GitHub Actions -> ACR -> Azure Container Apps deployment flow, animated:
+
+![CBA Clean architecture flow](docs/architecture/flow-animation.gif)
+
+See [`docs/architecture/README.md`](docs/architecture/README.md) for the D2
+source and the commands to reproduce or edit both diagrams.
+
 ## Transactional Outbox
 
 **Why the direct approach was unsafe.** Previously the Report Service saved the
