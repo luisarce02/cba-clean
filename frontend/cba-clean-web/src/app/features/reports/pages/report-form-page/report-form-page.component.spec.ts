@@ -22,18 +22,23 @@ vi.mock('leaflet', () => {
     remove: vi.fn(),
     getZoom: vi.fn(() => 13),
   };
-  return {
-    default: {
-      map: vi.fn(() => mockMap),
-      tileLayer: vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })),
-      marker: vi.fn(() => ({ setLatLng: vi.fn(), addTo: vi.fn().mockReturnThis() })),
-      Icon: { Default: { imagePath: '' } },
-    },
-    map: vi.fn(() => mockMap),
-    tileLayer: vi.fn(() => ({ addTo: vi.fn().mockReturnThis() })),
-    marker: vi.fn(() => ({ setLatLng: vi.fn(), addTo: vi.fn().mockReturnThis() })),
-    Icon: { Default: { imagePath: '' } },
+  const mockMarker = {
+    setLatLng: vi.fn(),
+    addTo: vi.fn().mockReturnThis(),
   };
+  const mockTileLayer = {
+    addTo: vi.fn().mockReturnThis(),
+  };
+
+  const mod: any = {
+    map: vi.fn(() => mockMap),
+    tileLayer: vi.fn(() => mockTileLayer),
+    marker: vi.fn(() => mockMarker),
+    Icon: { Default: { imagePath: '' } },
+    __test: { onHandlers, mockMap, mockMarker, mockTileLayer },
+  };
+  mod.default = mod;
+  return mod;
 });
 
 function setupAuthenticatedTestbed(role: string) {

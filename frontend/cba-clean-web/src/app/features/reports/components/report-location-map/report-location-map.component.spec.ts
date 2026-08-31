@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReportLocationMapComponent } from './report-location-map.component';
 import * as L from 'leaflet';
 
-vi.mock('leaflet', () => {
+const { onHandlers, mockMap, mockMarker, mockTileLayer } = vi.hoisted(() => {
   const onHandlers: Record<string, Function[]> = {};
   const mockMap = {
     on: vi.fn((event: string, handler: Function) => {
@@ -21,7 +21,10 @@ vi.mock('leaflet', () => {
   const mockTileLayer = {
     addTo: vi.fn().mockReturnThis(),
   };
+  return { onHandlers, mockMap, mockMarker, mockTileLayer };
+});
 
+vi.mock('leaflet', () => {
   const mod: any = {
     map: vi.fn(() => mockMap),
     tileLayer: vi.fn(() => mockTileLayer),
