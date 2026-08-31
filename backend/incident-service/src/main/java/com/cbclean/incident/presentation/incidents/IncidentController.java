@@ -5,6 +5,7 @@ import com.cbclean.incident.application.incident.get.GetIncidentUseCase;
 import com.cbclean.incident.application.incident.list.GetIncidentsUseCase;
 import com.cbclean.incident.application.incident.status.UpdateIncidentStatusCommand;
 import com.cbclean.incident.application.incident.status.UpdateIncidentStatusUseCase;
+import com.cbclean.incident.domain.model.DateRange;
 import com.cbclean.incident.domain.model.Incident;
 import com.cbclean.incident.domain.model.IncidentId;
 import com.cbclean.incident.domain.model.IncidentStatus;
@@ -17,11 +18,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/v1/incidents")
@@ -40,9 +45,12 @@ public class IncidentController {
         this.updateStatus = updateStatus;
     }
 
-    @Operation(summary = "List all incidents", description = "Returns all operational incidents. Requires OPERATOR role.")
+    @Operation(summary = "List incidents", description = "Returns a paginated list of operational incidents, optionally filtered by creation date range. Requires OPERATOR role.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "List of incidents"),
+            @ApiResponse(responseCode = "200", description = "Paginated list of incidents"),
+            @ApiResponse(responseCode = "400", description = "Invalid date format",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Not authenticated",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class))),
@@ -51,9 +59,41 @@ public class IncidentController {
                             schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class)))
     })
     @GetMapping
-    public ResponseEntity<List<IncidentResponse>> list() {
-        List<Incident> incidents = getIncidents.execute();
-        return ResponseEntity.ok(incidents.stream().map(IncidentResponse::from).toList());
+    public ResponseEntity<IncidentPageResponse> list(
+            @PageableDefault(size = 20) Pageable pageable,
+            @Parameter(description = "Start of date range (ISO 8601, inclusive)", example = "2026-08-31T00:00:00Z")
+            @RequestParam(required = false) String from,
+            @Parameter(description = "End of date range (ISO 8601, inclusive)", example = "2026-08-31T23:59:59Z")
+            @RequestParam(required = false) String to) {
+        DateRange dateRange = parseDateRange(from, to);
+        Page<Incident> page = getIncidents.execute(pageable, dateRange);
+        IncidentPageResponse response = new IncidentPageResponse(
+                page.getContent().stream().map(IncidentResponse::from).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
+        return ResponseEntity.ok(response);
+    }
+
+    private DateRange parseDateRange(String from, String to) {
+        if (from == null && to == null) {
+            return null;
+        }
+        Instant fromInstant = parseInstant(from);
+        Instant toInstant = parseInstant(to);
+        return DateRange.of(fromInstant, toInstant);
+    }
+
+    private Instant parseInstant(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid date format: " + value + ". Expected ISO 8601 (e.g. 2026-08-31T00:00:00Z)");
+        }
     }
 
     @Operation(summary = "Get an incident by id")

@@ -50,9 +50,9 @@ export class OperatorReportDetailComponent implements OnInit {
   }
 
   private findRelatedIncident(reportId: string): void {
-    this.incidentService.getIncidents().subscribe({
-      next: (incidents) => {
-        const match = incidents.find((i) => i.reportId === reportId);
+    this.incidentService.getIncidents(0, 100).subscribe({
+      next: (result) => {
+        const match = result.content.find((i) => i.reportId === reportId);
         if (match) this.relatedIncidentId.set(match.id);
       },
       error: () => {

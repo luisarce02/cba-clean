@@ -37,8 +37,8 @@ describe('OperatorReportDetailComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     // After report load, component also fetches incidents for related
-    const incReq = httpMock.expectOne('http://localhost:8081/api/v1/incidents');
-    incReq.flush([]);
+    const incReq = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+    incReq.flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
     fixture.detectChanges();
     await fixture.whenStable();
   }
@@ -69,8 +69,8 @@ describe('OperatorReportDetailComponent', () => {
     httpMock.expectOne(`http://localhost:8080/api/v1/reports/${mockReport.id}`).flush(mockReport);
     fixture.detectChanges();
     await fixture.whenStable();
-    const incReq = httpMock.expectOne('http://localhost:8081/api/v1/incidents');
-    incReq.flush([{ id: 'incident-1', reportId: mockReport.id, type: 'LITTER', status: 'NEW' }]);
+    const incReq = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+    incReq.flush({ content: [{ id: 'incident-1', reportId: mockReport.id, type: 'LITTER', status: 'NEW' }], page: 0, size: 100, totalElements: 1, totalPages: 1 });
     fixture.detectChanges();
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;

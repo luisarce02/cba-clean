@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ReportService } from '../../../reports/services/report.service';
@@ -17,6 +17,13 @@ export class OperatorReportsComponent implements OnInit {
   readonly reports = signal<ReportResponse[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly currentPage = signal(0);
+  readonly pageSize = signal(20);
+  readonly totalElements = signal(0);
+  readonly totalPages = signal(0);
+
+  readonly hasNextPage = computed(() => this.currentPage() < this.totalPages() - 1);
+  readonly hasPreviousPage = computed(() => this.currentPage() > 0);
 
   ngOnInit(): void {
     this.load();
@@ -25,10 +32,11 @@ export class OperatorReportsComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.reportService.getReports().subscribe({
+    this.reportService.getReports(this.currentPage(), this.pageSize()).subscribe({
       next: (data) => {
-        const sorted = [...data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        this.reports.set(sorted);
+        this.reports.set(data.content);
+        this.totalElements.set(data.totalElements);
+        this.totalPages.set(data.totalPages);
         this.loading.set(false);
       },
       error: (err) => {
@@ -37,5 +45,24 @@ export class OperatorReportsComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  goToPage(page: number): void {
+    if (page >= 0 && page < this.totalPages()) {
+      this.currentPage.set(page);
+      this.load();
+    }
+  }
+
+  nextPage(): void {
+    if (this.hasNextPage()) {
+      this.goToPage(this.currentPage() + 1);
+    }
+  }
+
+  previousPage(): void {
+    if (this.hasPreviousPage()) {
+      this.goToPage(this.currentPage() - 1);
+    }
   }
 }

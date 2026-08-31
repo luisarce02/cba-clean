@@ -89,3 +89,29 @@
   color: #611a15;
   p { margin: 0 0 0.75rem; }
 }
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.page-info {
+  font-size: 0.875rem;
+  color: #616161;
+}
+
+.page-controls {
+  display: flex;
+  gap: 0.5rem;
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
