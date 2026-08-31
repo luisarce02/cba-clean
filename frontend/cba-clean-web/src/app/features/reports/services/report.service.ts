@@ -18,7 +18,7 @@ export class ReportService {
     return this.http.get<ReportResponse>(`${this.baseUrl}/${id}`);
   }
 
-  getReports(page: number = 0, size: number = 20): Observable<PaginatedResponse<ReportResponse>> {
+  getReports(page: number = 0, size: number = 10): Observable<PaginatedResponse<ReportResponse>> {
     const params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());

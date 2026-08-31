@@ -60,7 +60,7 @@ public class IncidentController {
     })
     @GetMapping
     public ResponseEntity<IncidentPageResponse> list(
-            @PageableDefault(size = 20) Pageable pageable,
+            @PageableDefault(size = 10) Pageable pageable,
             @Parameter(description = "Start of date range (ISO 8601, inclusive)", example = "2026-08-31T00:00:00Z")
             @RequestParam(required = false) String from,
             @Parameter(description = "End of date range (ISO 8601, inclusive)", example = "2026-08-31T23:59:59Z")

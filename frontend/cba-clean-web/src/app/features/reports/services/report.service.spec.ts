@@ -133,14 +133,14 @@ describe('ReportService', () => {
       expect(response.content.length).toBe(1);
       expect(response.content[0].id).toBe('7f9c24e8-0b5a-4d1e-9f2a-3c6b8d7e1a45');
       expect(response.page).toBe(0);
-      expect(response.size).toBe(20);
+      expect(response.size).toBe(10);
       expect(response.totalElements).toBe(1);
       expect(response.totalPages).toBe(1);
     });
 
     const req = httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports');
     expect(req.request.method).toBe('GET');
-    req.flush({ content: [mockReportResponse], page: 0, size: 20, totalElements: 1, totalPages: 1 });
+    req.flush({ content: [mockReportResponse], page: 0, size: 10, totalElements: 1, totalPages: 1 });
   });
 
   it('should handle empty reports list', () => {
@@ -151,6 +151,6 @@ describe('ReportService', () => {
     });
 
     const req = httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports');
-    req.flush({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 });
+    req.flush({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 });
   });
 });

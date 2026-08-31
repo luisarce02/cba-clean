@@ -71,14 +71,14 @@ class IncidentControllerTest {
     void listReturns200() throws Exception {
         Incident inc = sampleIncident(IncidentStatus.NEW);
         when(getIncidentsUseCase.execute(any(), any())).thenReturn(
-                new PageImpl<>(List.of(inc), PageRequest.of(0, 20), 1));
+                new PageImpl<>(List.of(inc), PageRequest.of(0, 10), 1));
 
         mockMvc.perform(get("/api/v1/incidents"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].status").value("NEW"))
                 .andExpect(jsonPath("$.content[0].type").value("LITTER"))
                 .andExpect(jsonPath("$.page").value(0))
-                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.size").value(10))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1));
     }
@@ -87,7 +87,7 @@ class IncidentControllerTest {
     void listWithDateRangeReturns200() throws Exception {
         Incident inc = sampleIncident(IncidentStatus.NEW);
         when(getIncidentsUseCase.execute(any(), any())).thenReturn(
-                new PageImpl<>(List.of(inc), PageRequest.of(0, 20), 1));
+                new PageImpl<>(List.of(inc), PageRequest.of(0, 10), 1));
 
         mockMvc.perform(get("/api/v1/incidents")
                         .param("from", "2026-08-01T00:00:00Z")

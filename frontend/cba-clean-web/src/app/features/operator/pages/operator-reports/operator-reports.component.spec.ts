@@ -39,7 +39,7 @@ describe('OperatorReportsComponent', () => {
   const paginatedResponse = (reports: ReportResponse[]) => ({
     content: reports,
     page: 0,
-    size: 20,
+    size: 10,
     totalElements: reports.length,
     totalPages: reports.length > 0 ? 1 : 0,
   });

@@ -54,7 +54,7 @@ describe('OperatorDashboardComponent', () => {
   const paginatedResponse = (incidents: IncidentResponse[]) => ({
     content: incidents,
     page: 0,
-    size: 20,
+    size: 10,
     totalElements: incidents.length,
     totalPages: incidents.length > 0 ? 1 : 0,
   });

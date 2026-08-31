@@ -82,7 +82,7 @@ public class ReportController {
     })
     @GetMapping
     public ResponseEntity<ReportPageResponse> list(
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 10) Pageable pageable) {
         Page<Report> page = listReports.execute(pageable);
         ReportPageResponse response = new ReportPageResponse(
                 page.getContent().stream().map(ReportResponse::from).toList(),

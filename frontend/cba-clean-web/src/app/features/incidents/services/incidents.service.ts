@@ -10,7 +10,7 @@ export class IncidentService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.incidentApiBaseUrl}/incidents`;
 
-  getIncidents(page: number = 0, size: number = 20, from?: string, to?: string): Observable<PaginatedResponse<IncidentResponse>> {
+  getIncidents(page: number = 0, size: number = 10, from?: string, to?: string): Observable<PaginatedResponse<IncidentResponse>> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());
