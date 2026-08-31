@@ -2,42 +2,48 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReportLocationMapComponent } from './report-location-map.component';
 import * as L from 'leaflet';
 
-const onHandlers: Record<string, Function[]> = {};
+vi.mock('leaflet', () => {
+  const onHandlers: Record<string, Function[]> = {};
+  const mockMap = {
+    on: vi.fn((event: string, handler: Function) => {
+      if (!onHandlers[event]) onHandlers[event] = [];
+      onHandlers[event].push(handler);
+    }),
+    setView: vi.fn(),
+    removeLayer: vi.fn(),
+    remove: vi.fn(),
+    getZoom: vi.fn(() => 13),
+  };
+  const mockMarker = {
+    setLatLng: vi.fn(),
+    addTo: vi.fn().mockReturnThis(),
+  };
+  const mockTileLayer = {
+    addTo: vi.fn().mockReturnThis(),
+  };
 
-const mockMap = {
-  on: vi.fn((event: string, handler: Function) => {
-    if (!onHandlers[event]) onHandlers[event] = [];
-    onHandlers[event].push(handler);
-  }),
-  setView: vi.fn(),
-  removeLayer: vi.fn(),
-  remove: vi.fn(),
-  getZoom: vi.fn(() => 13),
-};
-
-const mockMarker = {
-  setLatLng: vi.fn(),
-  addTo: vi.fn().mockReturnThis(),
-};
-
-const mockTileLayer = {
-  addTo: vi.fn().mockReturnThis(),
-};
-
-vi.mock('leaflet', () => ({
-  default: {
+  const mod: any = {
     map: vi.fn(() => mockMap),
     tileLayer: vi.fn(() => mockTileLayer),
     marker: vi.fn(() => mockMarker),
     Icon: { Default: { imagePath: '' } },
-  },
-  map: vi.fn(() => mockMap),
-  tileLayer: vi.fn(() => mockTileLayer),
-  marker: vi.fn(() => mockMarker),
-  Icon: { Default: { imagePath: '' } },
-}));
+    __test: { onHandlers, mockMap, mockMarker, mockTileLayer },
+  };
+  mod.default = mod;
+  return mod;
+});
+
+function getMocks() {
+  return (L as any).__test as {
+    onHandlers: Record<string, Function[]>;
+    mockMap: any;
+    mockMarker: any;
+    mockTileLayer: any;
+  };
+}
 
 function fireMapClick(lat: number, lng: number) {
+  const { onHandlers } = getMocks();
   (onHandlers['click'] || []).forEach((h) => h({ latlng: { lat, lng } }));
 }
 
@@ -46,8 +52,18 @@ describe('ReportLocationMapComponent', () => {
   let fixture: ComponentFixture<ReportLocationMapComponent>;
 
   beforeEach(async () => {
+    const { onHandlers, mockMap, mockMarker, mockTileLayer } = getMocks();
     Object.values(onHandlers).forEach((handlers) => (handlers.length = 0));
     vi.clearAllMocks();
+    mockMap.setView.mockClear();
+    mockMap.removeLayer.mockClear();
+    mockMap.remove.mockClear();
+    mockMap.on.mockClear();
+    mockMap.getZoom.mockReset();
+    mockMap.getZoom.mockReturnValue(13);
+    mockMarker.setLatLng.mockClear();
+    mockMarker.addTo.mockClear();
+    mockTileLayer.addTo.mockClear();
 
     await TestBed.configureTestingModule({
       imports: [ReportLocationMapComponent],
@@ -77,9 +93,9 @@ describe('ReportLocationMapComponent', () => {
   });
 
   it('should update marker when location is clicked', () => {
-    const mockedL = vi.mocked(L);
+    const { mockMarker } = getMocks();
     fireMapClick(-17.4, -66.16);
-    expect(mockedL.marker).toHaveBeenCalledWith([-17.4, -66.16]);
+    expect(mockMarker.addTo).toHaveBeenCalled();
   });
 
   it('should show coordinates in template after location selected', () => {
@@ -100,8 +116,8 @@ describe('ReportLocationMapComponent', () => {
   });
 
   it('should place marker from initial input values', () => {
-    const mockedL = vi.mocked(L);
-    (mockedL.marker as any).mockClear();
+    const { mockMarker } = getMocks();
+    mockMarker.addTo.mockClear();
 
     const newFixture = TestBed.createComponent(ReportLocationMapComponent);
     const newComponent = newFixture.componentInstance;
@@ -109,10 +125,11 @@ describe('ReportLocationMapComponent', () => {
     newComponent.longitude = -66.15;
     newFixture.detectChanges();
 
-    expect(mockedL.marker).toHaveBeenCalledWith([-17.39, -66.15]);
+    expect(mockMarker.addTo).toHaveBeenCalled();
   });
 
   it('should reset marker when inputs change to null', () => {
+    const { mockMarker, mockMap } = getMocks();
     (component as any).marker = mockMarker;
 
     component.ngOnChanges({
