@@ -95,7 +95,6 @@ testem.log
 graphify-out/
 /CLAUDE.md
 /.mcp.json
-/.gitattributes
 
 # Azure CLI exploratory output / raw resource dumps (not reproducible IaC)
 *.token

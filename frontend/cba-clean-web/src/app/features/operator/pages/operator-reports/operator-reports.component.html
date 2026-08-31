@@ -34,5 +34,12 @@
         </div>
       }
     </div>
+    <div class="pagination">
+      <span class="page-info">Page {{ currentPage() + 1 }} of {{ totalPages() }} ({{ totalElements() }} total)</span>
+      <div class="page-controls">
+        <button type="button" class="btn btn-secondary" [disabled]="!hasPreviousPage()" (click)="previousPage()">Previous</button>
+        <button type="button" class="btn btn-secondary" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+      </div>
+    </div>
   }
 </section>

@@ -2,12 +2,14 @@ package com.cbclean.report.application.report.list;
 
 import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.repository.ReportRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Use case: list all reports. No filtering/pagination for MVP; returns all persisted reports.
+ * Use case: list reports with optional pagination.
  */
 public class ListReportsUseCase {
 
@@ -19,5 +21,9 @@ public class ListReportsUseCase {
 
     public List<Report> execute() {
         return reports.findAll();
+    }
+
+    public Page<Report> execute(Pageable pageable) {
+        return reports.findAll(pageable);
     }
 }

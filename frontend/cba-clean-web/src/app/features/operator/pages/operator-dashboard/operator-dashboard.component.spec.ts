@@ -51,6 +51,14 @@ describe('OperatorDashboardComponent', () => {
     },
   ];
 
+  const paginatedResponse = (incidents: IncidentResponse[]) => ({
+    content: incidents,
+    page: 0,
+    size: 20,
+    totalElements: incidents.length,
+    totalPages: incidents.length > 0 ? 1 : 0,
+  });
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [OperatorDashboardComponent],
@@ -66,14 +74,14 @@ describe('OperatorDashboardComponent', () => {
 
   it('should create', () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne('http://localhost:8081/api/v1/incidents');
-    req.flush([]);
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+    req.flush(paginatedResponse([]));
     expect(fixture.componentInstance).toBeTruthy();
   });
 
   it('should display Operations Overview', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8081/api/v1/incidents').flush([]);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('Operations Overview');
@@ -82,7 +90,7 @@ describe('OperatorDashboardComponent', () => {
 
   it('should have links to operational pages', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8081/api/v1/incidents').flush([]);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('View Reports');
@@ -92,34 +100,30 @@ describe('OperatorDashboardComponent', () => {
 
   it('should load incidents from backend and render them', () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne('http://localhost:8081/api/v1/incidents');
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
     expect(req.request.method).toBe('GET');
-    req.flush(mockIncidents);
+    req.flush(paginatedResponse(mockIncidents));
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('Recent Incidents');
-    // Incidents are rendered with sliced id
     expect(el.textContent).toContain('11111111');
     expect(el.textContent).toContain('22222222');
     expect(el.textContent).toContain('Illegal Dumping');
-    // Location
     expect(el.textContent).toContain('Cochabamba');
   });
 
   it('should render correct status indicator classes', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8081/api/v1/incidents').flush(mockIncidents);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse(mockIncidents));
     fixture.detectChanges();
 
     const indicators = fixture.nativeElement.querySelectorAll('.status-indicator');
-    // Should have 3 indicators (one per incident) - sorted by lastModified descending: RESOLVED, IN_PROGRESS, NEW
     expect(indicators.length).toBe(3);
     const classes = Array.from(indicators).map((el: any) => el.className);
     expect(classes.join(' ')).toContain('status-new');
     expect(classes.join(' ')).toContain('status-in-progress');
     expect(classes.join(' ')).toContain('status-resolved');
-    // Also check aria-label and text
     expect(fixture.nativeElement.textContent).toContain('NEW');
     expect(fixture.nativeElement.textContent).toContain('IN_PROGRESS');
     expect(fixture.nativeElement.textContent).toContain('RESOLVED');
@@ -127,42 +131,108 @@ describe('OperatorDashboardComponent', () => {
 
   it('should display summary counts', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8081/api/v1/incidents').flush(mockIncidents);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse(mockIncidents));
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('Incidents Summary');
-    // Counts: NEW 1, IN_PROGRESS 1, RESOLVED 1, total 3
     expect(el.textContent).toContain('Total');
   });
 
   it('should show empty state when no incidents', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8081/api/v1/incidents').flush([]);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.textContent).toContain('No incidents yet');
+    expect(el.textContent).toContain('No incidents found for the selected time range.');
   });
 
   it('should show error and retry on failure', () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne('http://localhost:8081/api/v1/incidents');
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
     req.flush({ message: 'Server down' }, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('Failed to load incidents');
-    expect(el.querySelector('button')?.textContent).toContain('Retry');
+    expect(el.querySelector('.state-error button')?.textContent).toContain('Retry');
   });
 
   it('should display View Details links with correct router', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8081/api/v1/incidents').flush(mockIncidents);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse(mockIncidents));
     fixture.detectChanges();
 
     const links = fixture.nativeElement.querySelectorAll('a');
     const detailLinks = Array.from(links).filter((a: any) => a.textContent.includes('View Details'));
     expect(detailLinks.length).toBe(3);
+  });
+
+  it('should render time range filter presets', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Incidents by Time Range');
+    expect(el.textContent).toContain('Today');
+    expect(el.textContent).toContain('Last 24 hours');
+    expect(el.textContent).toContain('Last 5 days');
+    expect(el.textContent).toContain('Last 2 weeks');
+    expect(el.textContent).toContain('Last month');
+    expect(el.textContent).toContain('Custom range');
+  });
+
+  it('should default to Today preset and show it active', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    expect(presetBtns.length).toBe(6);
+    expect(presetBtns[0].classList).toContain('active');
+  });
+
+  it('should call loadIncidents with from/to when switching preset', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    presetBtns[2].click();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+    expect(req.request.params.has('from')).toBe(true);
+    expect(req.request.params.has('to')).toBe(true);
+    req.flush(paginatedResponse([]));
+  });
+
+  it('should show custom range inputs when Custom range selected', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    presetBtns[5].click();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.custom-range')).toBeTruthy();
+    expect(el.querySelector('.date-input')).toBeTruthy();
+  });
+
+  it('should disable Apply button when custom range is invalid', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    presetBtns[5].click();
+    fixture.detectChanges();
+
+    const applyBtn = fixture.nativeElement.querySelector('.custom-range .btn-primary') as HTMLButtonElement;
+    expect(applyBtn.disabled).toBe(true);
   });
 });

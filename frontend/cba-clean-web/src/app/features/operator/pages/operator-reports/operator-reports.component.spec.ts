@@ -36,6 +36,14 @@ describe('OperatorReportsComponent', () => {
     },
   ];
 
+  const paginatedResponse = (reports: ReportResponse[]) => ({
+    content: reports,
+    page: 0,
+    size: 20,
+    totalElements: reports.length,
+    totalPages: reports.length > 0 ? 1 : 0,
+  });
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [OperatorReportsComponent],
@@ -49,15 +57,15 @@ describe('OperatorReportsComponent', () => {
 
   it('should create', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8080/api/v1/reports').flush([]);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports').flush(paginatedResponse([]));
     expect(fixture.componentInstance).toBeTruthy();
   });
 
   it('should load reports from backend and render them', () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne('http://localhost:8080/api/v1/reports');
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports');
     expect(req.request.method).toBe('GET');
-    req.flush(mockReports);
+    req.flush(paginatedResponse(mockReports));
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -70,7 +78,7 @@ describe('OperatorReportsComponent', () => {
 
   it('should show empty state', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8080/api/v1/reports').flush([]);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports').flush(paginatedResponse([]));
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('No reports have been submitted yet');
@@ -78,7 +86,7 @@ describe('OperatorReportsComponent', () => {
 
   it('should show error and allow retry', () => {
     fixture.detectChanges();
-    const req = httpMock.expectOne('http://localhost:8080/api/v1/reports');
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports');
     req.flush({ message: 'Server error' }, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
@@ -90,7 +98,7 @@ describe('OperatorReportsComponent', () => {
 
   it('should have View Details links', () => {
     fixture.detectChanges();
-    httpMock.expectOne('http://localhost:8080/api/v1/reports').flush(mockReports);
+    httpMock.expectOne((r) => r.url === 'http://localhost:8080/api/v1/reports').flush(paginatedResponse(mockReports));
     fixture.detectChanges();
     const links = fixture.nativeElement.querySelectorAll('a');
     const detailLinks = Array.from(links).filter((a: any) => a.textContent.includes('View Details'));

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { IncidentService } from '../../../incidents/services/incidents.service';
@@ -29,6 +29,13 @@ import { IncidentResponse } from '../../../incidents/models/incidents.model';
             </div>
           }
         </div>
+        <div class="pagination">
+          <span class="page-info">Page {{ currentPage() + 1 }} of {{ totalPages() }} ({{ totalElements() }} total)</span>
+          <div class="page-controls">
+            <button type="button" class="btn btn-page" [disabled]="!hasPreviousPage()" (click)="previousPage()">Previous</button>
+            <button type="button" class="btn btn-page" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+          </div>
+        </div>
       }
     </section>
   `,
@@ -38,8 +45,13 @@ import { IncidentResponse } from '../../../incidents/models/incidents.model';
     .mono { font-family: monospace; font-weight:600; }
     .btn { margin-left:auto; color:#1976d2; text-decoration:none; border:1px solid #1976d2; padding:0.25rem 0.6rem; border-radius:4px; }
     .btn:hover { background:#e3f2fd; }
+    .btn-page { margin-left:0; background:#fff; cursor:pointer; }
+    .btn-page:disabled { opacity:0.5; cursor:not-allowed; }
     .state-message { font-style:italic; color:#616161; }
     .state-error { color:#611a15; background:#fdecea; padding:0.75rem; border-radius:6px; }
+    .pagination { display:flex; justify-content:space-between; align-items:center; margin-top:1.5rem; padding:1rem; background:#fff; border:1px solid #e0e0e0; border-radius:8px; }
+    .page-info { font-size:0.875rem; color:#616161; }
+    .page-controls { display:flex; gap:0.5rem; }
   `],
 })
 export class OperatorIncidentsComponent implements OnInit {
@@ -47,11 +59,48 @@ export class OperatorIncidentsComponent implements OnInit {
   readonly incidents = signal<IncidentResponse[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly currentPage = signal(0);
+  readonly pageSize = signal(20);
+  readonly totalElements = signal(0);
+  readonly totalPages = signal(0);
+
+  readonly hasNextPage = computed(() => this.currentPage() < this.totalPages() - 1);
+  readonly hasPreviousPage = computed(() => this.currentPage() > 0);
 
   ngOnInit(): void {
-    this.incidentService.getIncidents().subscribe({
-      next: (data) => { this.incidents.set(data); this.loading.set(false); },
+    this.load();
+  }
+
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.incidentService.getIncidents(this.currentPage(), this.pageSize()).subscribe({
+      next: (data) => {
+        this.incidents.set(data.content);
+        this.totalElements.set(data.totalElements);
+        this.totalPages.set(data.totalPages);
+        this.loading.set(false);
+      },
       error: (err) => { this.error.set(err?.error?.message ?? 'Failed to load'); this.loading.set(false); },
     });
+  }
+
+  goToPage(page: number): void {
+    if (page >= 0 && page < this.totalPages()) {
+      this.currentPage.set(page);
+      this.load();
+    }
+  }
+
+  nextPage(): void {
+    if (this.hasNextPage()) {
+      this.goToPage(this.currentPage() + 1);
+    }
+  }
+
+  previousPage(): void {
+    if (this.hasPreviousPage()) {
+      this.goToPage(this.currentPage() - 1);
+    }
   }
 }

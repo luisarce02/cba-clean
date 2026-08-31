@@ -3,6 +3,8 @@ package com.cbclean.report.infrastructure.persistence.report;
 import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.model.ReportId;
 import com.cbclean.report.domain.repository.ReportRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,5 +41,11 @@ public class PostgresReportRepository implements ReportRepository {
     @Transactional(readOnly = true)
     public List<Report> findAll() {
         return jpa.findAll().stream().map(ReportPersistenceMapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Report> findAll(Pageable pageable) {
+        return jpa.findAll(pageable).map(ReportPersistenceMapper::toDomain);
     }
 }

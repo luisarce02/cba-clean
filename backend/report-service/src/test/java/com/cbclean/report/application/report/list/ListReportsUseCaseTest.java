@@ -6,6 +6,9 @@ import com.cbclean.report.domain.model.ReportId;
 import com.cbclean.report.domain.model.ReportType;
 import com.cbclean.report.domain.repository.ReportRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
 import java.util.List;
@@ -35,5 +38,21 @@ class ListReportsUseCaseTest {
         when(repo.findAll()).thenReturn(List.of());
         ListReportsUseCase useCase = new ListReportsUseCase(repo);
         assertThat(useCase.execute()).isEmpty();
+    }
+
+    @Test
+    void returnsPaginatedReportsFromRepository() {
+        ReportRepository repo = mock(ReportRepository.class);
+        Report report = Report.submit(new ReportId(java.util.UUID.randomUUID()), ReportType.LITTER, GeoLocation.of(10, 20), null, "desc", List.of(), null, Instant.now());
+        Page<Report> page = new PageImpl<>(List.of(report), PageRequest.of(0, 10), 1);
+        when(repo.findAll(PageRequest.of(0, 10))).thenReturn(page);
+
+        ListReportsUseCase useCase = new ListReportsUseCase(repo);
+        Page<Report> result = useCase.execute(PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getNumber()).isEqualTo(0);
+        assertThat(result.getSize()).isEqualTo(10);
     }
 }

@@ -3,6 +3,9 @@ package com.cbclean.report.domain.repository;
 import com.cbclean.report.domain.model.Report;
 import com.cbclean.report.domain.model.ReportId;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -19,4 +22,6 @@ public interface ReportRepository {
     Optional<Report> findById(ReportId id);
 
     List<Report> findAll();
+
+    Page<Report> findAll(Pageable pageable);
 }

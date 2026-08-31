@@ -22,6 +22,33 @@
     </div>
   </div>
 
+  <div class="time-filter">
+    <h2>Incidents by Time Range</h2>
+    <div class="filter-controls">
+      <div class="preset-buttons">
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'today'" (click)="selectPreset('today')">Today</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last24h'" (click)="selectPreset('last24h')">Last 24 hours</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last5d'" (click)="selectPreset('last5d')">Last 5 days</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last2w'" (click)="selectPreset('last2w')">Last 2 weeks</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'lastMonth'" (click)="selectPreset('lastMonth')">Last month</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'custom'" (click)="selectPreset('custom')">Custom range</button>
+      </div>
+      @if (isCustomRange()) {
+        <div class="custom-range">
+          <label class="date-label">
+            From
+            <input type="date" [ngModel]="customFrom()" (ngModelChange)="onCustomFromChange($event)" class="date-input">
+          </label>
+          <label class="date-label">
+            To
+            <input type="date" [ngModel]="customTo()" (ngModelChange)="onCustomToChange($event)" class="date-input">
+          </label>
+          <button type="button" class="btn btn-primary" [disabled]="!isCustomRangeValid()" (click)="applyCustomRange()">Apply</button>
+        </div>
+      }
+    </div>
+  </div>
+
   @if (!loading() && !error() && incidents().length > 0) {
     <div class="summary">
       <h2>Incidents Summary</h2>
@@ -47,7 +74,7 @@
         <button type="button" class="btn btn-secondary" (click)="loadIncidents()">Retry</button>
       </div>
     } @else if (incidents().length === 0) {
-      <p class="state-message">No incidents yet. Incidents are created automatically from citizen reports.</p>
+      <p class="state-message">No incidents found for the selected time range.</p>
     } @else {
       <div class="incident-list">
         @for (incident of incidents(); track incident.id) {
@@ -73,6 +100,15 @@
           </div>
         }
       </div>
+      @if (totalPages() > 1) {
+        <div class="pagination">
+          <span class="page-info">Page {{ currentPage() + 1 }} of {{ totalPages() }}</span>
+          <div class="page-controls">
+            <button type="button" class="btn btn-secondary" [disabled]="!hasPreviousPage()" (click)="previousPage()">Previous</button>
+            <button type="button" class="btn btn-secondary" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+          </div>
+        </div>
+      }
     }
   </div>
 </section>

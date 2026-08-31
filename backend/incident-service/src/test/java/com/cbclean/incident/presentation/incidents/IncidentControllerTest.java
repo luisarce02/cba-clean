@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -67,12 +69,46 @@ class IncidentControllerTest {
 
     @Test
     void listReturns200() throws Exception {
-        when(getIncidentsUseCase.execute()).thenReturn(List.of(sampleIncident(IncidentStatus.NEW)));
+        Incident inc = sampleIncident(IncidentStatus.NEW);
+        when(getIncidentsUseCase.execute(any(), any())).thenReturn(
+                new PageImpl<>(List.of(inc), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/v1/incidents"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("NEW"))
-                .andExpect(jsonPath("$[0].type").value("LITTER"));
+                .andExpect(jsonPath("$.content[0].status").value("NEW"))
+                .andExpect(jsonPath("$.content[0].type").value("LITTER"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    void listWithDateRangeReturns200() throws Exception {
+        Incident inc = sampleIncident(IncidentStatus.NEW);
+        when(getIncidentsUseCase.execute(any(), any())).thenReturn(
+                new PageImpl<>(List.of(inc), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/v1/incidents")
+                        .param("from", "2026-08-01T00:00:00Z")
+                        .param("to", "2026-08-31T23:59:59Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].status").value("NEW"));
+    }
+
+    @Test
+    void listWithInvalidDateFormatReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/incidents")
+                        .param("from", "not-a-date"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listWithFromAfterToReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/incidents")
+                        .param("from", "2026-08-31T00:00:00Z")
+                        .param("to", "2026-08-01T00:00:00Z"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

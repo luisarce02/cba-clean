@@ -15,6 +15,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -65,11 +68,11 @@ public class ReportController {
     }
 
     @Operation(summary = "List waste reports",
-            description = "Returns all waste reports. Requires OPERATOR role.")
+            description = "Returns a paginated list of waste reports. Requires OPERATOR role.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "List of reports",
+            @ApiResponse(responseCode = "200", description = "Paginated list of reports",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ReportResponse.class))),
+                            schema = @Schema(implementation = ReportPageResponse.class))),
             @ApiResponse(responseCode = "401", description = "Not authenticated",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class))),
@@ -78,9 +81,16 @@ public class ReportController {
                             schema = @Schema(implementation = GlobalRestExceptionHandler.ApiErrorResponse.class)))
     })
     @GetMapping
-    public ResponseEntity<java.util.List<ReportResponse>> list() {
-        java.util.List<ReportResponse> reports = listReports.execute().stream().map(ReportResponse::from).toList();
-        return ResponseEntity.ok(reports);
+    public ResponseEntity<ReportPageResponse> list(
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<Report> page = listReports.execute(pageable);
+        ReportPageResponse response = new ReportPageResponse(
+                page.getContent().stream().map(ReportResponse::from).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get a waste report by id",
