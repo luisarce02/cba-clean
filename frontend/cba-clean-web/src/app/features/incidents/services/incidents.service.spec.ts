@@ -36,12 +36,12 @@ describe('IncidentService', () => {
     service.getIncidents().subscribe(data => {
       expect(data.content.length).toBe(1);
       expect(data.page).toBe(0);
-      expect(data.size).toBe(20);
+      expect(data.size).toBe(10);
       expect(data.totalElements).toBe(1);
     });
     const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
     expect(req.request.method).toBe('GET');
-    req.flush({ content: [mockIncident], page: 0, size: 20, totalElements: 1, totalPages: 1 });
+    req.flush({ content: [mockIncident], page: 0, size: 10, totalElements: 1, totalPages: 1 });
   });
 
   it('should fetch incidents with date range params', () => {
@@ -51,7 +51,7 @@ describe('IncidentService', () => {
     const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
     expect(req.request.params.get('from')).toBe('2026-08-01T00:00:00Z');
     expect(req.request.params.get('to')).toBe('2026-08-31T23:59:59Z');
-    req.flush({ content: [mockIncident], page: 0, size: 20, totalElements: 1, totalPages: 1 });
+    req.flush({ content: [mockIncident], page: 0, size: 10, totalElements: 1, totalPages: 1 });
   });
 
   it('should fetch incident by id', () => {

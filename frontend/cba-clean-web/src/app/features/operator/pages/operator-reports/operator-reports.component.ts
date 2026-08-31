@@ -18,7 +18,7 @@ export class OperatorReportsComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly currentPage = signal(0);
-  readonly pageSize = signal(20);
+  readonly pageSize = signal(10);
   readonly totalElements = signal(0);
   readonly totalPages = signal(0);
 
