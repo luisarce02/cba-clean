@@ -254,6 +254,53 @@ describe('OperatorDashboardComponent', () => {
     const applyBtn = fixture.nativeElement.querySelector('.custom-range .btn-primary') as HTMLButtonElement;
     expect(applyBtn.disabled).toBe(true);
   });
+
+  it('should keep preset buttons and date fields enabled for an authenticated operator', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset') as NodeListOf<HTMLButtonElement>;
+    presetBtns.forEach((btn) => expect(btn.disabled).toBe(false));
+
+    presetBtns[5].click(); // Custom range
+    fixture.detectChanges();
+
+    const fromInput = fixture.nativeElement.querySelector('[data-testid="filter-date-from"]') as HTMLInputElement;
+    const toInput = fixture.nativeElement.querySelector('[data-testid="filter-date-to"]') as HTMLInputElement;
+    expect(fromInput.disabled).toBe(false);
+    expect(toInput.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="filter-demo-hint"]')).toBeNull();
+  });
+
+  it('should continue filtering by date range exactly as before for an authenticated operator', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents').flush(paginatedResponse([]));
+    fixture.detectChanges();
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    presetBtns[5].click(); // Custom range
+    fixture.detectChanges();
+
+    const fromInput = fixture.nativeElement.querySelector('[data-testid="filter-date-from"]') as HTMLInputElement;
+    const toInput = fixture.nativeElement.querySelector('[data-testid="filter-date-to"]') as HTMLInputElement;
+    fromInput.value = '2026-01-01';
+    fromInput.dispatchEvent(new Event('input'));
+    fromInput.dispatchEvent(new Event('change'));
+    toInput.value = '2026-01-31';
+    toInput.dispatchEvent(new Event('input'));
+    toInput.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const applyBtn = fixture.nativeElement.querySelector('.custom-range .btn-primary') as HTMLButtonElement;
+    expect(applyBtn.disabled).toBe(false);
+    applyBtn.click();
+
+    const req = httpMock.expectOne((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+    expect(req.request.params.has('from')).toBe(true);
+    expect(req.request.params.has('to')).toBe(true);
+    req.flush(paginatedResponse([]));
+  });
 });
 
 describe('OperatorDashboardComponent — read-only demo mode (unauthenticated visitor)', () => {
@@ -324,5 +371,61 @@ describe('OperatorDashboardComponent — read-only demo mode (unauthenticated vi
     presetBtns[2].click();
     fixture.detectChanges();
     httpMock.expectNone((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+  });
+
+  it('should disable the start date field', () => {
+    fixture.detectChanges();
+    const fromInput = fixture.nativeElement.querySelector('[data-testid="filter-date-from"]') as HTMLInputElement;
+    expect(fromInput).toBeTruthy();
+    expect(fromInput.disabled).toBe(true);
+  });
+
+  it('should disable the end date field', () => {
+    fixture.detectChanges();
+    const toInput = fixture.nativeElement.querySelector('[data-testid="filter-date-to"]') as HTMLInputElement;
+    expect(toInput).toBeTruthy();
+    expect(toInput.disabled).toBe(true);
+  });
+
+  it('should disable every time-range preset button', () => {
+    fixture.detectChanges();
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset') as NodeListOf<HTMLButtonElement>;
+    expect(presetBtns.length).toBe(6);
+    presetBtns.forEach((btn) => expect(btn.disabled).toBe(true));
+  });
+
+  it('should disable the Apply button', () => {
+    fixture.detectChanges();
+    const applyBtn = fixture.nativeElement.querySelector('.custom-range .btn-primary') as HTMLButtonElement;
+    expect(applyBtn.disabled).toBe(true);
+  });
+
+  it('should show a hint explaining why the date filters are disabled', () => {
+    fixture.detectChanges();
+    const hint = fixture.nativeElement.querySelector('[data-testid="filter-demo-hint"]');
+    expect(hint).toBeTruthy();
+    expect(hint.textContent).toContain('read-only mode');
+  });
+
+  it('should ignore onCustomFromChange/onCustomToChange even if invoked directly', () => {
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.onCustomFromChange('2026-01-01');
+    component.onCustomToChange('2026-01-31');
+
+    expect(component.customFrom()).toBe('');
+    expect(component.customTo()).toBe('');
+  });
+
+  it('should not change the displayed data when a preset button is clicked', () => {
+    fixture.detectChanges();
+    const before = fixture.nativeElement.textContent;
+
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    presetBtns[1].click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toBe(before);
   });
 });
