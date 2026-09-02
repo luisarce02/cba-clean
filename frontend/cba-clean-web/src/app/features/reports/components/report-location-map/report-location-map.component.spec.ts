@@ -160,6 +160,19 @@ describe('ReportLocationMapComponent', () => {
     expect(btn.textContent).toContain('Use my location');
   });
 
+  it('should use my location and emit the browser position when interactive', () => {
+    const emitSpy = vi.spyOn(component.locationSelected, 'emit');
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({ coords: { latitude: -17.5, longitude: -66.2 } } as GeolocationPosition);
+    });
+    (globalThis as any).navigator.geolocation = { getCurrentPosition };
+
+    component.useMyLocation();
+
+    expect(getCurrentPosition).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith({ latitude: -17.5, longitude: -66.2 });
+  });
+
   it('should use OpenStreetMap tiles', () => {
     const mockedL = vi.mocked(L);
     expect(mockedL.tileLayer).toHaveBeenCalledWith(
@@ -171,6 +184,17 @@ describe('ReportLocationMapComponent', () => {
   });
 
   describe('when interactive is false (read-only demo)', () => {
+    it('should still initialize the Leaflet map so it renders', () => {
+      const mockedL = vi.mocked(L);
+      mockedL.map.mockClear();
+
+      const freshFixture = TestBed.createComponent(ReportLocationMapComponent);
+      freshFixture.componentInstance.interactive = false;
+      freshFixture.detectChanges();
+
+      expect(mockedL.map).toHaveBeenCalled();
+    });
+
     it('should not emit locationSelected on map click', () => {
       const freshFixture = TestBed.createComponent(ReportLocationMapComponent);
       freshFixture.componentInstance.interactive = false;
@@ -180,6 +204,25 @@ describe('ReportLocationMapComponent', () => {
       fireMapClick(-17.4, -66.16);
 
       expect(emitSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not change the marker through a map click', () => {
+      // Flips the already-initialized outer `component`/`fixture` from
+      // beforeEach to read-only, instead of creating a second fixture —
+      // mockMap/mockMarker are module-level singletons shared by every
+      // fixture in this file, so a second fixture would register a second
+      // 'click' handler in `onHandlers` and fireMapClick would then also
+      // trigger the interactive outer fixture's own (legitimate) marker
+      // update, corrupting this assertion.
+      const { mockMarker } = getMocks();
+      component.interactive = false;
+      mockMarker.addTo.mockClear();
+      mockMarker.setLatLng.mockClear();
+
+      fireMapClick(-17.4, -66.16);
+
+      expect(mockMarker.addTo).not.toHaveBeenCalled();
+      expect(mockMarker.setLatLng).not.toHaveBeenCalled();
     });
 
     it('should ignore useMyLocation()', () => {

@@ -7,6 +7,12 @@ import { routes } from './app.routes';
 import { AuthService } from './core/services/auth.service';
 import { OidcService } from './core/services/oidc.service';
 import { Component } from '@angular/core';
+import { createLeafletMockModule } from '../testing/leaflet.mock';
+
+// Real navigations here lazy-load ReportFormPageComponent, which pulls in
+// ReportLocationMapComponent and, transitively, `leaflet`. Mocking it keeps
+// the real DOM-touching library out of these route/guard tests entirely.
+vi.mock('leaflet', () => createLeafletMockModule());
 
 function setToken(roles: string[]) {
   const payload = { roles, exp: Math.floor(Date.now() / 1000) + 3600 };
