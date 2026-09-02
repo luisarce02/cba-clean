@@ -4,7 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { AuthService } from '../services/auth.service';
 import { OidcService } from '../services/oidc.service';
-import { homeRedirectGuard, reporterGuard, operatorGuard } from './role.guard';
+import { homeRedirectGuard, reporterGuard, operatorGuard, operatorDemoGuard } from './role.guard';
 
 function setToken(roles: string[]) {
   const payload = { roles, exp: Math.floor(Date.now() / 1000) + 3600 };
@@ -110,6 +110,43 @@ describe('Role Guards', () => {
       authService.loadFromStorage();
       const result = await TestBed.runInInjectionContext(() => operatorGuard(null as any, null as any)) as unknown;
       expect((result as any).toString()).toContain('/reports/new');
+    });
+  });
+
+  describe('operatorDemoGuard', () => {
+    it('should allow unauthenticated user through (read-only demo)', async () => {
+      clearToken();
+      authService.loadFromStorage();
+      const result = await TestBed.runInInjectionContext(() => operatorDemoGuard(null as any, null as any)) as unknown;
+      expect(result).toBe(true);
+    });
+
+    it('should allow OPERATOR', async () => {
+      setToken(['OPERATOR']);
+      authService.loadFromStorage();
+      const result = await TestBed.runInInjectionContext(() => operatorDemoGuard(null as any, null as any)) as unknown;
+      expect(result).toBe(true);
+    });
+
+    it('should allow user with both roles', async () => {
+      setToken(['REPORTER', 'OPERATOR']);
+      authService.loadFromStorage();
+      const result = await TestBed.runInInjectionContext(() => operatorDemoGuard(null as any, null as any)) as unknown;
+      expect(result).toBe(true);
+    });
+
+    it('should redirect REPORTER-only to /reports/new', async () => {
+      setToken(['REPORTER']);
+      authService.loadFromStorage();
+      const result = await TestBed.runInInjectionContext(() => operatorDemoGuard(null as any, null as any)) as unknown;
+      expect((result as any).toString()).toContain('/reports/new');
+    });
+
+    it('should redirect authenticated user without any role to /', async () => {
+      setToken(['SOMEONE']);
+      authService.loadFromStorage();
+      const result = await TestBed.runInInjectionContext(() => operatorDemoGuard(null as any, null as any)) as unknown;
+      expect((result as any).toString()).toBe('/');
     });
   });
 

@@ -62,3 +62,16 @@
 main {
   padding: 0;
 }
+
+.demo-banner {
+  background: #fff3e0;
+  border-bottom: 1px solid #ffb74d;
+  color: #7a4a00;
+  padding: 0.625rem 1.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+
+  strong {
+    margin-right: 0.35rem;
+  }
+}

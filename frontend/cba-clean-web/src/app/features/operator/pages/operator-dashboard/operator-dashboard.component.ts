@@ -2,8 +2,11 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { IncidentService } from '../../../incidents/services/incidents.service';
 import { IncidentResponse, INCIDENT_STATUS_LABELS, INCIDENT_PRIORITY_LABELS, INCIDENT_TYPE_LABELS } from '../../../incidents/models/incidents.model';
+import { AuthService } from '../../../../core/services/auth.service';
+import { DEMO_INCIDENTS } from './operator-dashboard.demo-data';
 
 type TimeRangePreset = 'today' | 'last24h' | 'last5d' | 'last2w' | 'lastMonth' | 'custom';
 
@@ -16,6 +19,11 @@ type TimeRangePreset = 'today' | 'last24h' | 'last5d' | 'last2w' | 'lastMonth' |
 })
 export class OperatorDashboardComponent implements OnInit {
   private readonly incidentService = inject(IncidentService);
+  private readonly authService = inject(AuthService);
+
+  readonly isAuthenticated = toSignal(this.authService.isAuthenticated$, { initialValue: false });
+  /** Absence of authentication only — never a role. Drives the read-only demo experience. */
+  readonly isDemoVisitor = computed(() => !this.isAuthenticated());
 
   readonly incidents = signal<IncidentResponse[]>([]);
   readonly loading = signal(true);
@@ -60,6 +68,14 @@ export class OperatorDashboardComponent implements OnInit {
   }
 
   loadIncidents(): void {
+    // Visitors never hold a token, and GET /api/v1/incidents requires
+    // ROLE_OPERATOR server-side — calling it would just 401. Render
+    // representative sample data instead of touching the protected endpoint.
+    if (this.isDemoVisitor()) {
+      this.loadDemoIncidents();
+      return;
+    }
+
     this.loading.set(true);
     this.error.set(null);
     const { from, to } = this.computeDateRange();
@@ -76,6 +92,14 @@ export class OperatorDashboardComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  private loadDemoIncidents(): void {
+    this.loading.set(false);
+    this.error.set(null);
+    this.incidents.set(DEMO_INCIDENTS);
+    this.totalElements.set(DEMO_INCIDENTS.length);
+    this.totalPages.set(1);
   }
 
   selectPreset(preset: TimeRangePreset): void {

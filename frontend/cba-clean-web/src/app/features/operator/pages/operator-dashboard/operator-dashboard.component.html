@@ -1,23 +1,41 @@
 <section class="operator-dashboard">
   <h1>Operator Dashboard</h1>
 
+  @if (isDemoVisitor()) {
+    <p class="demo-context-note">
+      Showing sample incident data for demonstration purposes. Sign in with an operator account to view live incidents.
+    </p>
+  }
+
   <div class="overview">
     <h2>Operations Overview</h2>
     <div class="cards">
       <div class="card">
         <h3>Reports</h3>
         <p>View citizen-submitted waste reports.</p>
-        <a routerLink="/operator/reports" class="btn btn-primary">View Reports</a>
+        @if (isDemoVisitor()) {
+          <span class="btn btn-primary btn-disabled" aria-disabled="true" title="Sign in to access">View Reports</span>
+        } @else {
+          <a routerLink="/operator/reports" class="btn btn-primary">View Reports</a>
+        }
       </div>
       <div class="card">
         <h3>Incidents</h3>
         <p>Manage incidents derived from reports.</p>
-        <a routerLink="/operator/incidents" class="btn btn-primary">View Incidents</a>
+        @if (isDemoVisitor()) {
+          <span class="btn btn-primary btn-disabled" aria-disabled="true" title="Sign in to access">View Incidents</span>
+        } @else {
+          <a routerLink="/operator/incidents" class="btn btn-primary">View Incidents</a>
+        }
       </div>
       <div class="card">
         <h3>Operational Metrics</h3>
         <p>View system metrics and health.</p>
-        <a routerLink="/operator/metrics" class="btn btn-primary">View Metrics</a>
+        @if (isDemoVisitor()) {
+          <span class="btn btn-primary btn-disabled" aria-disabled="true" title="Sign in to access">View Metrics</span>
+        } @else {
+          <a routerLink="/operator/metrics" class="btn btn-primary">View Metrics</a>
+        }
       </div>
     </div>
   </div>
@@ -96,7 +114,11 @@
                 <span class="detail">Location: {{ incident.location.latitude | number:'1.4-4' }}, {{ incident.location.longitude | number:'1.4-4' }}</span>
               }
             </div>
-            <a [routerLink]="['/operator/incidents', incident.id]" class="btn btn-secondary">View Details</a>
+            @if (isDemoVisitor()) {
+              <span class="btn btn-secondary btn-disabled" aria-disabled="true" title="Sign in to view full details">View Details</span>
+            } @else {
+              <a [routerLink]="['/operator/incidents', incident.id]" class="btn btn-secondary">View Details</a>
+            }
           </div>
         }
       </div>

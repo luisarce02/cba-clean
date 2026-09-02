@@ -119,4 +119,22 @@ describe('App Routing - role based', () => {
     await router.navigateByUrl('/operator/reports/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
     expect(router.url).toBe('/operator/reports/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
   });
+
+  it('anonymous visitor should access /operator/dashboard in read-only demo mode', async () => {
+    await setup(null);
+    await router.navigateByUrl('/operator/dashboard');
+    expect(router.url).toBe('/operator/dashboard');
+  });
+
+  it('anonymous visitor should still be redirected away from /operator/reports', async () => {
+    await setup(null);
+    await router.navigateByUrl('/operator/reports');
+    expect(router.url).toBe('/reports/new');
+  });
+
+  it('anonymous visitor should access /reports/new', async () => {
+    await setup(null);
+    await router.navigateByUrl('/reports/new');
+    expect(router.url).toBe('/reports/new');
+  });
 });

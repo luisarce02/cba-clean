@@ -19,6 +19,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   readonly isAuthenticated = computed(() => this.auth.isAuthenticated());
   readonly hasReporter = computed(() => this.auth.hasRole('REPORTER'));
   readonly hasOperator = computed(() => this.auth.hasRole('OPERATOR'));
+  /** Absence of authentication only — never a role. Surfaces the visitor demo CTAs. */
+  readonly isDemoVisitor = computed(() => this.auth.isDemoVisitor());
 
   /** Left → right flow: reporter creation + operator resolution loop */
   readonly steps = [
