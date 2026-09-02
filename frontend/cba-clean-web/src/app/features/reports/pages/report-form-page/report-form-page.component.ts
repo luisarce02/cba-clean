@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -39,6 +39,11 @@ export class ReportFormPageComponent {
   readonly isAuthenticated = toSignal(this.authService.isAuthenticated$, { initialValue: false });
   readonly hasReporterRole = computed(() => this.authService.hasRole('REPORTER'));
 
+  /** Absence of authentication only — never a role. Drives the read-only demo experience. */
+  readonly isDemoVisitor = computed(() => !this.isAuthenticated());
+  /** Demo visitors preview the form read-only; authenticated non-reporters see it hidden. */
+  readonly canViewForm = computed(() => this.isDemoVisitor() || this.hasReporterRole());
+
   readonly currentError = toSignal(this.errorService.error$, { initialValue: null });
   readonly isSubmissionFailure = computed(() => {
     const error = this.currentError();
@@ -56,11 +61,24 @@ export class ReportFormPageComponent {
     reporterPhone: ['', Validators.pattern(/^(\+)?[0-9 ]{6,20}$/)],
   });
 
+  constructor() {
+    // Keep the form disabled for the whole duration of a read-only demo
+    // session, and re-enable it the moment a real REPORTER session exists.
+    effect(() => {
+      if (this.isDemoVisitor()) {
+        this.reportForm.disable({ emitEvent: false });
+      } else {
+        this.reportForm.enable({ emitEvent: false });
+      }
+    });
+  }
+
   onLogin(): void {
     this.authService.login();
   }
 
   onLocationSelected(event: { latitude: number; longitude: number }): void {
+    if (this.isDemoVisitor()) return;
     this.reportForm.patchValue({
       latitude: event.latitude,
       longitude: event.longitude,
@@ -68,6 +86,7 @@ export class ReportFormPageComponent {
   }
 
   onSubmit(): void {
+    if (this.isDemoVisitor()) return;
     if (this.reportForm.invalid) {
       this.reportForm.markAllAsTouched();
       return;

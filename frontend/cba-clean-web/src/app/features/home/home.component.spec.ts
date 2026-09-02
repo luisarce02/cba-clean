@@ -47,6 +47,39 @@ describe('HomeComponent - public landing', () => {
     expect(exploreCta.getAttribute('href')).toBe('#arch');
   });
 
+  it('should render an Operator Demo CTA for anonymous visitors', async () => {
+    const fixture = await createComponent();
+    const el = fixture.nativeElement as HTMLElement;
+    const operatorDemoCta = el.querySelector('[data-testid="cta-operator-demo"]') as HTMLAnchorElement;
+    expect(operatorDemoCta).toBeTruthy();
+    expect(operatorDemoCta.getAttribute('href')).toBe('/operator/dashboard');
+    expect(operatorDemoCta.textContent).toContain('Operator Demo');
+    expect(el.querySelector('[data-testid="visitor-demo-hint"]')?.textContent).toContain('read-only');
+  });
+
+  it('should navigate to the operator dashboard when the Operator Demo CTA is clicked', async () => {
+    const fixture = await createComponent();
+    const router = TestBed.inject(Router);
+    const operatorDemoCta = fixture.nativeElement.querySelector('[data-testid="cta-operator-demo"]') as HTMLAnchorElement;
+
+    operatorDemoCta.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/operator/dashboard');
+  });
+
+  it('should hide the Operator Demo CTA once authenticated', async () => {
+    const payload = { roles: ['REPORTER'], exp: Math.floor(Date.now() / 1000) + 3600 };
+    const token = `header.${btoa(JSON.stringify(payload))}.sig`;
+    localStorage.setItem('cba_clean_access_token', token);
+    localStorage.setItem('cba_clean_expires_at', String(Date.now() + 3600000));
+
+    const fixture = await createComponent();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="cta-operator-demo"]')).toBeNull();
+    expect(el.querySelector('[data-testid="visitor-demo-hint"]')).toBeNull();
+  });
+
   it('should render concise sections (purpose, arch, closing)', async () => {
     const fixture = await createComponent();
     const el = fixture.nativeElement as HTMLElement;
@@ -106,12 +139,21 @@ describe('HomeComponent - public landing', () => {
     expect(router.url).toBe('/');
   });
 
-  it('should not break operator protected route', async () => {
+  it('should let an anonymous visitor reach the operator dashboard in read-only demo mode', async () => {
     await TestBed.configureTestingModule({
       providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting(), AuthService, OidcService],
     }).compileComponents();
     const router = TestBed.inject(Router);
     await router.navigateByUrl('/operator/dashboard');
+    expect(router.url).toBe('/operator/dashboard');
+  });
+
+  it('should still redirect an anonymous visitor away from operator sub-pages that require real data', async () => {
+    await TestBed.configureTestingModule({
+      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting(), AuthService, OidcService],
+    }).compileComponents();
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/operator/reports');
     expect(router.url).toBe('/reports/new');
   });
 

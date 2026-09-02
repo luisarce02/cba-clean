@@ -4,6 +4,15 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { OperatorDashboardComponent } from './operator-dashboard.component';
 import { IncidentResponse } from '../../../incidents/models/incidents.model';
+import { AuthService } from '../../../../core/services/auth.service';
+import { OidcService } from '../../../../core/services/oidc.service';
+
+function setOperatorToken() {
+  const payload = { roles: ['OPERATOR'], exp: Math.floor(Date.now() / 1000) + 3600 };
+  const token = `header.${btoa(JSON.stringify(payload))}.sig`;
+  localStorage.setItem('cba_clean_access_token', token);
+  localStorage.setItem('cba_clean_expires_at', String(Date.now() + 3600000));
+}
 
 describe('OperatorDashboardComponent', () => {
   let fixture: ComponentFixture<OperatorDashboardComponent>;
@@ -60,9 +69,18 @@ describe('OperatorDashboardComponent', () => {
   });
 
   beforeEach(async () => {
+    localStorage.clear();
+    setOperatorToken();
+
     await TestBed.configureTestingModule({
       imports: [OperatorDashboardComponent],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        AuthService,
+        OidcService,
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(OperatorDashboardComponent);
     httpMock = TestBed.inject(HttpTestingController);
@@ -70,6 +88,7 @@ describe('OperatorDashboardComponent', () => {
 
   afterEach(() => {
     httpMock.verify();
+    localStorage.clear();
   });
 
   it('should create', () => {
@@ -234,5 +253,76 @@ describe('OperatorDashboardComponent', () => {
 
     const applyBtn = fixture.nativeElement.querySelector('.custom-range .btn-primary') as HTMLButtonElement;
     expect(applyBtn.disabled).toBe(true);
+  });
+});
+
+describe('OperatorDashboardComponent — read-only demo mode (unauthenticated visitor)', () => {
+  let fixture: ComponentFixture<OperatorDashboardComponent>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    localStorage.clear();
+
+    await TestBed.configureTestingModule({
+      imports: [OperatorDashboardComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        AuthService,
+        OidcService,
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(OperatorDashboardComponent);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.clear();
+  });
+
+  it('should never call the protected incidents endpoint', () => {
+    fixture.detectChanges();
+    httpMock.expectNone((r) => r.url === 'http://localhost:8081/api/v1/incidents');
+  });
+
+  it('should render sample incident data instead', () => {
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Av. Heroínas, Cochabamba');
+    expect(el.textContent).toContain('Illegal Dumping');
+  });
+
+  it('should show a demo context note', () => {
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.demo-context-note')?.textContent).toContain('sample incident data');
+  });
+
+  it('should disable navigation to Reports/Incidents/Metrics sub-pages', () => {
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const disabledCards = el.querySelectorAll('.card .btn-disabled');
+    expect(disabledCards.length).toBe(3);
+    expect(el.querySelectorAll('.card a[routerLink]').length).toBe(0);
+  });
+
+  it('should disable per-incident "View Details" links', () => {
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const detailLinks = el.querySelectorAll('.incident-card a');
+    expect(detailLinks.length).toBe(0);
+    const disabledDetails = Array.from(el.querySelectorAll('.incident-card .btn-disabled'))
+      .filter((n) => n.textContent?.includes('View Details'));
+    expect(disabledDetails.length).toBeGreaterThan(0);
+  });
+
+  it('should not fire a real request when switching time-range presets', () => {
+    fixture.detectChanges();
+    const presetBtns = fixture.nativeElement.querySelectorAll('.btn-preset');
+    presetBtns[2].click();
+    fixture.detectChanges();
+    httpMock.expectNone((r) => r.url === 'http://localhost:8081/api/v1/incidents');
   });
 });

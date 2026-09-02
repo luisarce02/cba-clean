@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { reporterGuard, operatorGuard } from './core/guards/role.guard';
+import { reporterGuard, operatorGuard, operatorDemoGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   {
@@ -24,7 +24,7 @@ export const routes: Routes = [
   },
   {
     path: 'operator/dashboard',
-    canActivate: [operatorGuard],
+    canActivate: [operatorDemoGuard],
     loadComponent: () =>
       import('./features/operator/pages/operator-dashboard/operator-dashboard.component').then(
         (m) => m.OperatorDashboardComponent,

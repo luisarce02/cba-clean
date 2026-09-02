@@ -17,6 +17,9 @@
         </p>
         <div class="ctas">
           <a class="btn primary" routerLink="/reports/new" data-testid="cta-report">Report an Issue</a>
+          @if (isDemoVisitor()) {
+            <a class="btn ghost" routerLink="/operator/dashboard" data-testid="cta-operator-demo">Explore Operator Demo</a>
+          }
           <a class="btn ghost" href="#arch" (click)="scrollTo('arch', $event)" data-testid="cta-explore">Explore architecture</a>
         </div>
         @if (isAuthenticated()) {
@@ -24,6 +27,10 @@
             @if (hasOperator()) { Signed in as operator — <a routerLink="/operator/dashboard">open dashboard</a> }
             @else if (hasReporter()) { Signed in — <a routerLink="/reports/new">submit a report</a> }
             @else { Signed in — <a routerLink="/reports/new">open workspace</a> }
+          </p>
+        } @else if (isDemoVisitor()) {
+          <p class="auth-hint" role="status" data-testid="visitor-demo-hint">
+            Browsing without an account — "Report an Issue" and "Explore Operator Demo" above are both read-only previews.
           </p>
         }
       </div>

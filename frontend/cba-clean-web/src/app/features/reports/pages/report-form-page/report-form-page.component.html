@@ -29,9 +29,9 @@
       <button type="button" class="btn" (click)="submittedReport.set(null)">Submit Another</button>
     </div>
   } @else {
-    @if (!isAuthenticated()) {
-      <div class="auth-prompt">
-        <p>You need to log in to submit a report.</p>
+    @if (isDemoVisitor()) {
+      <div class="auth-prompt demo-note">
+        <p><strong>Read-only preview.</strong> Explore the report form below — logging in with a REPORTER account is required to submit a report.</p>
         <button type="button" class="btn btn-primary" (click)="onLogin()">Login with Keycloak</button>
       </div>
     } @else if (!hasReporterRole()) {
@@ -39,7 +39,9 @@
         <p>Your account does not have the required role (REPORTER) to submit reports.</p>
         <p class="auth-hint">Contact an administrator to request access.</p>
       </div>
-    } @else {
+    }
+
+    @if (canViewForm()) {
       @if (currentError(); as err) {
         @if (!isSubmissionFailure()) {
           <app-error-display [error]="err" />
@@ -83,6 +85,7 @@
           <app-report-location-map
             [latitude]="reportForm.get('latitude')?.value || null"
             [longitude]="reportForm.get('longitude')?.value || null"
+            [interactive]="!isDemoVisitor()"
             (locationSelected)="onLocationSelected($event)"
           />
 
@@ -155,7 +158,7 @@
           </div>
         </fieldset>
 
-        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting()">
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting() || isDemoVisitor()">
           @if (isSubmitting()) {
             Submitting...
           } @else {

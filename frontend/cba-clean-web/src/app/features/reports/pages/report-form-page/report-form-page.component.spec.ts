@@ -3,12 +3,14 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { ReactiveFormsModule } from '@angular/forms';
+import { By } from '@angular/platform-browser';
 import { ReportFormPageComponent } from './report-form-page.component';
 import { ReportResponse } from '../../models/report.model';
 import { ErrorService } from '../../../../core/services/error.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { OidcService } from '../../../../core/services/oidc.service';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ReportLocationMapComponent } from '../../components/report-location-map/report-location-map.component';
 
 vi.mock('leaflet', () => {
   const onHandlers: Record<string, Function[]> = {};
@@ -104,11 +106,46 @@ describe('ReportFormPageComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should show login prompt when not authenticated', () => {
+  it('should show a read-only demo preview of the form when not authenticated', () => {
     createComponent();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.auth-prompt')).toBeTruthy();
-    expect(compiled.querySelector('.report-form')).toBeNull();
+    expect(compiled.querySelector('.report-form')).toBeTruthy();
+    expect(component.isDemoVisitor()).toBe(true);
+    expect(component.reportForm.disabled).toBe(true);
+  });
+
+  it('should disable the submit button and map interaction in demo mode', () => {
+    createComponent();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const submitBtn = compiled.querySelector('.btn-primary[type="submit"]') as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(true);
+
+    const mapDebugEl = fixture.debugElement.query(By.directive(ReportLocationMapComponent));
+    expect(mapDebugEl.componentInstance.interactive).toBe(false);
+  });
+
+  it('should ignore onSubmit and onLocationSelected while in demo mode', () => {
+    createComponent();
+
+    component.onLocationSelected({ latitude: 1, longitude: 2 });
+    expect(component.reportForm.get('latitude')?.value).not.toBe(1);
+
+    component.onSubmit();
+    httpMock.expectNone('http://localhost:8080/api/v1/reports');
+  });
+
+  it('should re-enable the form once authenticated as REPORTER', () => {
+    createComponent();
+    expect(component.reportForm.disabled).toBe(true);
+
+    setupAuthenticatedTestbed('REPORTER');
+    authService.loadFromStorage();
+    fixture.detectChanges();
+
+    expect(component.reportForm.disabled).toBe(false);
   });
 
   it('should show unauthorized message when authenticated without REPORTER role', () => {

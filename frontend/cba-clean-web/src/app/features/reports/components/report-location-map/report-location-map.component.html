@@ -1,7 +1,10 @@
-<div class="map-wrapper">
+<div class="map-wrapper" [class.map-readonly]="!interactive">
   <div #mapContainer class="map-container"></div>
+  @if (!interactive) {
+    <span class="map-readonly-badge">Read-only demo — sign in to select a location</span>
+  }
   <div class="map-controls">
-    <button type="button" class="map-btn" (click)="useMyLocation()">Use my location</button>
+    <button type="button" class="map-btn" [disabled]="!interactive" (click)="useMyLocation()">Use my location</button>
     @if (latitude !== null && longitude !== null) {
       <span class="map-coords">{{ latitude | number:'1.4-6' }}, {{ longitude | number:'1.4-6' }}</span>
     }

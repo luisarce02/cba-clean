@@ -11,6 +11,12 @@
     </div>
   </nav>
 </header>
+@if (isDemoVisitor()) {
+  <div class="demo-banner" role="status">
+    <strong>Demo Mode — Read Only.</strong>
+    You are viewing a public demo of CBA Clean. Authentication is required to interact with the application or modify data.
+  </div>
+}
 <app-navigation />
 <main>
   <router-outlet />

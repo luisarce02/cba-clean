@@ -169,4 +169,47 @@ describe('ReportLocationMapComponent', () => {
       }),
     );
   });
+
+  describe('when interactive is false (read-only demo)', () => {
+    it('should not emit locationSelected on map click', () => {
+      const freshFixture = TestBed.createComponent(ReportLocationMapComponent);
+      freshFixture.componentInstance.interactive = false;
+      freshFixture.detectChanges();
+
+      const emitSpy = vi.spyOn(freshFixture.componentInstance.locationSelected, 'emit');
+      fireMapClick(-17.4, -66.16);
+
+      expect(emitSpy).not.toHaveBeenCalled();
+    });
+
+    it('should ignore useMyLocation()', () => {
+      const freshFixture = TestBed.createComponent(ReportLocationMapComponent);
+      freshFixture.componentInstance.interactive = false;
+      freshFixture.detectChanges();
+
+      const geolocationSpy = vi.fn();
+      (globalThis as any).navigator.geolocation = { getCurrentPosition: geolocationSpy };
+
+      freshFixture.componentInstance.useMyLocation();
+
+      expect(geolocationSpy).not.toHaveBeenCalled();
+    });
+
+    it('should disable the "Use my location" button', () => {
+      const freshFixture = TestBed.createComponent(ReportLocationMapComponent);
+      freshFixture.componentInstance.interactive = false;
+      freshFixture.detectChanges();
+
+      const btn = freshFixture.nativeElement.querySelector('.map-btn') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+    });
+
+    it('should show a read-only badge', () => {
+      const freshFixture = TestBed.createComponent(ReportLocationMapComponent);
+      freshFixture.componentInstance.interactive = false;
+      freshFixture.detectChanges();
+
+      expect(freshFixture.nativeElement.querySelector('.map-readonly-badge')).toBeTruthy();
+    });
+  });
 });

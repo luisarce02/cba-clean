@@ -28,6 +28,7 @@ export class ReportLocationMapComponent implements OnInit, OnDestroy, OnChanges 
 
   @Input() latitude: number | null = null;
   @Input() longitude: number | null = null;
+  @Input() interactive = true;
 
   @Output() locationSelected = new EventEmitter<{ latitude: number; longitude: number }>();
 
@@ -62,6 +63,7 @@ export class ReportLocationMapComponent implements OnInit, OnDestroy, OnChanges 
     }).addTo(this.map);
 
     this.map.on('click', (event: L.LeafletMouseEvent) => {
+      if (!this.interactive) return;
       const { lat, lng } = event.latlng;
       this.updateMarker(lat, lng);
       this.locationSelected.emit({ latitude: lat, longitude: lng });
@@ -99,7 +101,7 @@ export class ReportLocationMapComponent implements OnInit, OnDestroy, OnChanges 
   }
 
   useMyLocation(): void {
-    if (!navigator.geolocation) return;
+    if (!this.interactive || !navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       (position) => {

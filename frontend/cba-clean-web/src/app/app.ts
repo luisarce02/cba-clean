@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from './core/services/auth.service';
@@ -16,6 +16,7 @@ export class App implements OnInit {
   private readonly router = inject(Router);
 
   readonly isAuthenticated = toSignal(this.authService.isAuthenticated$, { initialValue: false });
+  readonly isDemoVisitor = computed(() => !this.isAuthenticated());
   readonly username = signal('');
 
   async ngOnInit(): Promise<void> {

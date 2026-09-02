@@ -52,6 +52,16 @@ export class AuthService {
     return this.getToken() !== null;
   }
 
+  /**
+   * True when there is no authenticated session. Drives the read-only
+   * demo/visitor experience on the Reporter and Operator pages — this is
+   * never a role, just the absence of authentication, so it must not be
+   * used for anything beyond disabling UI and skipping protected calls.
+   */
+  isDemoVisitor(): boolean {
+    return !this.isAuthenticated();
+  }
+
   hasRole(role: string): boolean {
     const token = this.getToken();
     if (!token) return false;
