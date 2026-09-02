@@ -6,6 +6,12 @@ import { HomeComponent } from './home.component';
 import { AuthService } from '../../core/services/auth.service';
 import { OidcService } from '../../core/services/oidc.service';
 import { routes } from '../../app.routes';
+import { createLeafletMockModule } from '../../../testing/leaflet.mock';
+
+// Several tests below navigate to /reports/new, which lazy-loads
+// ReportFormPageComponent and, transitively, `leaflet`. Mocking it here
+// keeps the real DOM-touching library out of these routing tests entirely.
+vi.mock('leaflet', () => createLeafletMockModule());
 
 describe('HomeComponent - public landing', () => {
   beforeEach(() => {
