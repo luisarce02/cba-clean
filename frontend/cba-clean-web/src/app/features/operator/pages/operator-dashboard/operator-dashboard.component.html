@@ -42,26 +42,50 @@
 
   <div class="time-filter">
     <h2>Incidents by Time Range</h2>
+    @if (isDemoVisitor()) {
+      <p class="filter-demo-hint" data-testid="filter-demo-hint">
+        Demo data — date filters are disabled in read-only mode.
+      </p>
+    }
     <div class="filter-controls">
       <div class="preset-buttons">
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'today'" (click)="selectPreset('today')">Today</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last24h'" (click)="selectPreset('last24h')">Last 24 hours</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last5d'" (click)="selectPreset('last5d')">Last 5 days</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last2w'" (click)="selectPreset('last2w')">Last 2 weeks</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'lastMonth'" (click)="selectPreset('lastMonth')">Last month</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'custom'" (click)="selectPreset('custom')">Custom range</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'today'" [disabled]="isDemoVisitor()" (click)="selectPreset('today')">Today</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last24h'" [disabled]="isDemoVisitor()" (click)="selectPreset('last24h')">Last 24 hours</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last5d'" [disabled]="isDemoVisitor()" (click)="selectPreset('last5d')">Last 5 days</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last2w'" [disabled]="isDemoVisitor()" (click)="selectPreset('last2w')">Last 2 weeks</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'lastMonth'" [disabled]="isDemoVisitor()" (click)="selectPreset('lastMonth')">Last month</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'custom'" [disabled]="isDemoVisitor()" (click)="selectPreset('custom')">Custom range</button>
       </div>
-      @if (isCustomRange()) {
+      @if (isCustomRange() || isDemoVisitor()) {
         <div class="custom-range">
-          <label class="date-label">
-            From
-            <input type="date" [ngModel]="customFrom()" (ngModelChange)="onCustomFromChange($event)" class="date-input">
-          </label>
-          <label class="date-label">
-            To
-            <input type="date" [ngModel]="customTo()" (ngModelChange)="onCustomToChange($event)" class="date-input">
-          </label>
-          <button type="button" class="btn btn-primary" [disabled]="!isCustomRangeValid()" (click)="applyCustomRange()">Apply</button>
+          @if (isDemoVisitor()) {
+            <!--
+              A plain disabled input, not bound via ngModel: Angular's
+              NgModel/DefaultValueAccessor manages its own control's
+              disabled state and would silently re-enable an element that
+              also carries a `[disabled]` attribute binding, so the two
+              mechanisms cannot share one element.
+            -->
+            <label class="date-label">
+              From
+              <input type="date" class="date-input" disabled data-testid="filter-date-from">
+            </label>
+            <label class="date-label">
+              To
+              <input type="date" class="date-input" disabled data-testid="filter-date-to">
+            </label>
+            <button type="button" class="btn btn-primary" disabled>Apply</button>
+          } @else {
+            <label class="date-label">
+              From
+              <input type="date" [ngModel]="customFrom()" (ngModelChange)="onCustomFromChange($event)" class="date-input" data-testid="filter-date-from">
+            </label>
+            <label class="date-label">
+              To
+              <input type="date" [ngModel]="customTo()" (ngModelChange)="onCustomToChange($event)" class="date-input" data-testid="filter-date-to">
+            </label>
+            <button type="button" class="btn btn-primary" [disabled]="!isCustomRangeValid()" (click)="applyCustomRange()">Apply</button>
+          }
         </div>
       }
     </div>

@@ -103,6 +103,9 @@ export class OperatorDashboardComponent implements OnInit {
   }
 
   selectPreset(preset: TimeRangePreset): void {
+    // Demo data is static regardless of range, so changing the preset would
+    // give a visitor the false impression that it filters something.
+    if (this.isDemoVisitor()) return;
     this.selectedPreset.set(preset);
     this.currentPage.set(0);
     if (preset !== 'custom') {
@@ -111,6 +114,7 @@ export class OperatorDashboardComponent implements OnInit {
   }
 
   applyCustomRange(): void {
+    if (this.isDemoVisitor()) return;
     if (this.isCustomRangeValid()) {
       this.currentPage.set(0);
       this.loadIncidents();
@@ -118,10 +122,12 @@ export class OperatorDashboardComponent implements OnInit {
   }
 
   onCustomFromChange(value: string): void {
+    if (this.isDemoVisitor()) return;
     this.customFrom.set(value);
   }
 
   onCustomToChange(value: string): void {
+    if (this.isDemoVisitor()) return;
     this.customTo.set(value);
   }
 
