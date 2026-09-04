@@ -9,6 +9,7 @@ const EXPIRES_KEY = `${STORAGE_KEY_PREFIX}expires_at`;
 const REFRESH_KEY = `${STORAGE_KEY_PREFIX}refresh_token`;
 const CODE_VERIFIER_KEY = `${STORAGE_KEY_PREFIX}code_verifier`;
 const STATE_KEY = `${STORAGE_KEY_PREFIX}oauth_state`;
+const PENDING_LOGOUT_KEY = `${STORAGE_KEY_PREFIX}pending_logout`;
 
 // Refresh 60s before expiry – used for on-demand checks (guard / 401), not background timer.
 // Background scheduleRefresh was removed: it extended Keycloak SSO idle indefinitely.
@@ -100,18 +101,44 @@ export class AuthService {
   /**
    * Called via APP_INITIALIZER. Restores storage and attempts silent refresh
    * if access token is expired but refresh token exists.
+   *
+   * When returning from a Keycloak logout flow (pendingLogout flag set),
+   * refresh is skipped because Keycloak may have revoked the refresh token
+   * when the end_session_endpoint was called. The access token is kept as-is;
+   * it will expire naturally and the app will then show the login page.
    */
   async init(): Promise<void> {
     if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
-      // loadFromStorage already called in constructor; re-load in case storage changed
       this.loadFromStorage();
-      if (this.isTokenExpired() && this.getStoredRefreshToken()) {
-        // Try to refresh silently – if it fails, user will be unauthenticated
+      const pendingLogout = sessionStorage.getItem(PENDING_LOGOUT_KEY) === '1';
+      if (pendingLogout) {
+        // Returning from Keycloak logout flow. We don't know yet whether the
+        // user confirmed or cancelled the logout. Attempt a refresh to find out:
+        //
+        // • Refresh FAILS → Keycloak session was terminated (confirmed logout).
+        //   The refresh token was revoked by Keycloak. Clear local tokens so the
+        //   app transitions to unauthenticated state.
+        //
+        // • Refresh SUCCEEDS → Keycloak session is still alive (user cancelled).
+        //   The refresh token was NOT revoked. storeTokens() clears the pending
+        //   logout flag automatically. Keep the new tokens.
+        //
+        // • No refresh token at all → cannot determine. Clear tokens to be safe
+        //   (worst case: user must log in again).
+        sessionStorage.removeItem(PENDING_LOGOUT_KEY);
+        const rt = this.getStoredRefreshToken();
+        if (rt) {
+          const ok = await this.tryRefresh();
+          if (!ok) {
+            this.clearTokens();
+          }
+        } else {
+          this.clearTokens();
+        }
+      } else if (this.isTokenExpired() && this.getStoredRefreshToken()) {
         await this.tryRefresh();
       } else if (this.accessToken && this.isExpiringSoon()) {
-        // Token close to expiry on boot – refresh proactively but don't block long
-        // Fire and forget, but await briefly? We await to ensure guards see fresh token
         await this.tryRefresh();
       }
       this.initialized = true;
@@ -128,6 +155,9 @@ export class AuthService {
   /**
    * Ensures we have a valid token; if expiring soon or expired and refresh token
    * exists, attempts refresh. Returns true if authenticated after the attempt.
+   *
+   * Skips refresh when a logout flow was initiated (pendingLogout) because
+   * Keycloak may have revoked the refresh token at the end_session_endpoint.
    */
   async refreshIfNeeded(): Promise<boolean> {
     await this.whenReady();
@@ -208,7 +238,12 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
-    this.clearTokens();
+    // Mark that a logout flow has been initiated. Keycloak's end_session_endpoint
+    // may revoke the refresh token immediately when hit (before the user confirms).
+    // If the user cancels and returns, we must NOT attempt to refresh with the
+    // revoked token — that would produce a 400 and clear local state prematurely.
+    // Instead, keep the access token valid and let it expire naturally.
+    sessionStorage.setItem(PENDING_LOGOUT_KEY, '1');
     try {
       const discovery = await this.oidc.loadDiscoveryDocument(this.config.issuer);
       const endSessionUrl = this.oidc.getEndSessionUrl(discovery, this.config);
@@ -272,8 +307,9 @@ export class AuthService {
       localStorage.setItem(REFRESH_KEY, tokens.refreshToken);
     }
     this.authenticated$.next(true);
-    // No background scheduleRefresh – on-demand refresh via refreshIfNeeded() / 401 only.
-    // Background timer would reset Keycloak SSO idle on every 5 min and keep session alive indefinitely.
+    // Clear any pending logout flag — a successful token operation means
+    // the session is valid and we're no longer in a logout flow.
+    sessionStorage.removeItem(PENDING_LOGOUT_KEY);
   }
 
   loadFromStorage(): void {
