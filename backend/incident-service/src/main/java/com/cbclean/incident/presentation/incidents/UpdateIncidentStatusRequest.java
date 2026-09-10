@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public record UpdateIncidentStatusRequest(
         @Schema(description = "Target status", allowableValues = {"ASSIGNED","IN_PROGRESS","RESOLVED","CANCELLED"}, example = "IN_PROGRESS")
-        @NotBlank(message = "status is required")
+        @NotBlank(message = "{validation.status.required}")
         String status,
 
         @Schema(description = "Closing note for RESOLVED/CANCELLED; optional for other transitions")

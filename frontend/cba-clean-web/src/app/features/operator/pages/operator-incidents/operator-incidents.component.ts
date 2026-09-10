@@ -3,20 +3,22 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { IncidentService } from '../../../incidents/services/incidents.service';
 import { IncidentResponse } from '../../../incidents/models/incidents.model';
+import { TranslationService } from '../../../../core/services/translation.service';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 
 @Component({
   selector: 'app-operator-incidents',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, TranslatePipe],
   template: `
     <section class="operator-incidents">
-      <h1>Incidents</h1>
+      <h1>{{ 'operatorIncidents.title' | translate }}</h1>
       @if (loading()) {
-        <p class="state-message">Loading incidents…</p>
+        <p class="state-message">{{ 'operatorIncidents.loading' | translate }}</p>
       } @else if (error()) {
         <p class="state-error">{{ error() }}</p>
       } @else if (incidents().length === 0) {
-        <p class="state-message">No incidents yet.</p>
+        <p class="state-message">{{ 'operatorIncidents.noIncidents' | translate }}</p>
       } @else {
         <div class="incident-list">
           @for (inc of incidents(); track inc.id) {
@@ -25,15 +27,15 @@ import { IncidentResponse } from '../../../incidents/models/incidents.model';
               <span class="status">{{ inc.status }}</span>
               <span class="priority">{{ inc.priority }}</span>
               <span class="type">{{ inc.type }}</span>
-              <a [routerLink]="['/operator/incidents', inc.id]" class="btn">View</a>
+              <a [routerLink]="['/operator/incidents', inc.id]" class="btn">{{ 'operatorIncidents.view' | translate }}</a>
             </div>
           }
         </div>
         <div class="pagination">
-          <span class="page-info">Page {{ currentPage() + 1 }} of {{ totalPages() }} ({{ totalElements() }} total)</span>
+          <span class="page-info">{{ 'operatorIncidents.pageInfo' | translate:{ current: currentPage() + 1, total: totalPages(), totalElements: totalElements() } }}</span>
           <div class="page-controls">
-            <button type="button" class="btn btn-page" [disabled]="!hasPreviousPage()" (click)="previousPage()">Previous</button>
-            <button type="button" class="btn btn-page" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+            <button type="button" class="btn btn-page" [disabled]="!hasPreviousPage()" (click)="previousPage()">{{ 'operatorIncidents.previous' | translate }}</button>
+            <button type="button" class="btn btn-page" [disabled]="!hasNextPage()" (click)="nextPage()">{{ 'operatorIncidents.next' | translate }}</button>
           </div>
         </div>
       }
@@ -56,6 +58,7 @@ import { IncidentResponse } from '../../../incidents/models/incidents.model';
 })
 export class OperatorIncidentsComponent implements OnInit {
   private readonly incidentService = inject(IncidentService);
+  private readonly translation = inject(TranslationService);
   readonly incidents = signal<IncidentResponse[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -81,7 +84,7 @@ export class OperatorIncidentsComponent implements OnInit {
         this.totalPages.set(data.totalPages);
         this.loading.set(false);
       },
-      error: (err) => { this.error.set(err?.error?.message ?? 'Failed to load'); this.loading.set(false); },
+      error: (err) => { this.error.set(err?.error?.message ?? this.translation.t('operatorIncidents.loadFailed')); this.loading.set(false); },
     });
   }
 

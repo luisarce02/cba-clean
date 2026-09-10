@@ -1,44 +1,42 @@
 <div class="home" data-testid="home-page">
-  <a class="skip" href="#main">Skip to content</a>
+  <a class="skip" href="#main">{{ 'home.skipToContent' | translate }}</a>
 
   <header class="hero">
     <div class="wrap hero-inner">
       <div class="hero-text">
-        <div class="eyebrow">Cochabamba, Bolivia · Independent engineering project</div>
+        <div class="eyebrow">{{ 'home.eyebrow' | translate }}</div>
         <h1 id="hero-title" class="title">
-          <span class="kicker">CBA Clean</span>
-          Smarter waste reporting.<br>
-          <em>Better urban operations.</em>
+          <span class="kicker">{{ 'home.titleKicker' | translate }}</span>
+          {{ 'home.titleLine1' | translate }}<br>
+          <em>{{ 'home.titleEm' | translate }}</em>
         </h1>
         <p class="lead">
-          A microservices platform that connects citizen reports with an operational
-          workflow — designed around a real local problem to demonstrate production-oriented
-          backend practice.
+          {{ 'home.lead' | translate }}
         </p>
         <div class="ctas">
-          <a class="btn primary" routerLink="/reports/new" data-testid="cta-report">Report an Issue</a>
+          <a class="btn primary" routerLink="/reports/new" data-testid="cta-report">{{ 'home.ctaReport' | translate }}</a>
           @if (isDemoVisitor()) {
-            <a class="btn ghost" routerLink="/operator/dashboard" data-testid="cta-operator-demo">Explore Operator Demo</a>
+            <a class="btn ghost" routerLink="/operator/dashboard" data-testid="cta-operator-demo">{{ 'home.ctaOperatorDemo' | translate }}</a>
           }
-          <a class="btn ghost" href="#arch" (click)="scrollTo('arch', $event)" data-testid="cta-explore">Explore architecture</a>
+          <a class="btn ghost" href="#arch" (click)="scrollTo('arch', $event)" data-testid="cta-explore">{{ 'home.ctaExplore' | translate }}</a>
         </div>
         @if (isAuthenticated()) {
           <p class="auth-hint" role="status">
-            @if (hasOperator()) { Signed in as operator — <a routerLink="/operator/dashboard">open dashboard</a> }
-            @else if (hasReporter()) { Signed in — <a routerLink="/reports/new">submit a report</a> }
-            @else { Signed in — <a routerLink="/reports/new">open workspace</a> }
+            @if (hasOperator()) { {{ 'home.authHintOperatorPrefix' | translate }} <a routerLink="/operator/dashboard">{{ 'home.authHintOperatorLink' | translate }}</a> }
+            @else if (hasReporter()) { {{ 'home.authHintReporterPrefix' | translate }} <a routerLink="/reports/new">{{ 'home.authHintReporterLink' | translate }}</a> }
+            @else { {{ 'home.authHintReporterPrefix' | translate }} <a routerLink="/reports/new">{{ 'home.authHintDefaultLink' | translate }}</a> }
           </p>
         } @else if (isDemoVisitor()) {
           <p class="auth-hint" role="status" data-testid="visitor-demo-hint">
-            Browsing without an account — "Report an Issue" and "Explore Operator Demo" above are both read-only previews.
+            {{ 'home.authHintVisitor' | translate }}
           </p>
         }
       </div>
       <div class="hero-meta" aria-hidden="true">
         <div class="meta-card">
-          <div class="meta-row"><span>Report → Event → Incident → Resolution</span></div>
+          <div class="meta-row"><span>{{ 'home.metaFlow' | translate }}</span></div>
           <div class="meta-divider"></div>
-          <div class="meta-row small">Not an official municipal service · Portfolio prototype</div>
+          <div class="meta-row small">{{ 'home.metaNote' | translate }}</div>
         </div>
       </div>
     </div>
@@ -49,33 +47,25 @@
       <div class="wrap purpose">
         <div class="purpose-grid">
           <div class="purpose-block">
-            <h2 id="purpose-title" class="h2">The problem</h2>
+            <h2 id="purpose-title" class="h2">{{ 'home.purposeTitle' | translate }}</h2>
             <p>
-              Overflowing containers and accumulated waste are easy for residents to spot,
-              but hard for operational teams to track without a reliable bridge between
-              <strong>citizen observations</strong> and <strong>operational action</strong>.
-              CBA Clean is inspired by this gap in Cochabamba, Bolivia.
+              {{ 'home.purposeP1' | translate }}
             </p>
             <p class="muted">
-              This is an independent engineering project — it does not claim official use
-              by the municipality. Its value is as a design laboratory anchored in a real
-              community challenge.
+              {{ 'home.purposeP2' | translate }}
             </p>
             <div class="flow-inline" aria-label="High-level lifecycle">
               <span>Reporter</span><i aria-hidden="true"></i><span>Report</span><i aria-hidden="true"></i><span>Event</span><i aria-hidden="true"></i><span>Incident</span><i aria-hidden="true"></i><span>Operator</span><i aria-hidden="true"></i><span>Resolution</span>
             </div>
           </div>
           <div class="purpose-block purpose-why">
-            <h2 class="h2">Why it was built</h2>
+            <h2 class="h2">{{ 'home.whyTitle' | translate }}</h2>
             <p>
-              Instead of building another CRUD application, CBA Clean was designed around
-              a real operational workflow and used to explore
-              <strong>distributed systems, event-driven architecture, security, reliability, testing and CI/CD</strong>
-              with Java and Spring Boot.
+              {{ 'home.whyP1' | translate }}
             </p>
             <ul class="why-list">
-              <li><strong>Explore</strong> how software engineering can serve a local problem.</li>
-              <li><strong>Demonstrate</strong> production-oriented practices — not a tutorial.</li>
+              <li>{{ 'home.whyList1' | translate }}</li>
+              <li>{{ 'home.whyList2' | translate }}</li>
             </ul>
           </div>
         </div>
@@ -86,10 +76,9 @@
     <section class="section section-arch" aria-labelledby="arch-title" id="arch">
       <div class="wrap arch-wrap">
         <div class="section-head">
-          <h2 id="arch-title" class="h2">Architecture — the complete flow</h2>
+          <h2 id="arch-title" class="h2">{{ 'home.archTitle' | translate }}</h2>
           <p class="intro">
-            One horizontal diagram tells the whole story — reporter creation, event propagation and operator resolution
-            — exactly as it runs via <code>docker compose</code>.
+            {{ 'home.archIntro' | translate }}
           </p>
         </div>
 
@@ -97,7 +86,7 @@
           <div class="arch-toolbar">
             <div class="toolbar-left">
               <span class="dot" aria-hidden="true"></span>
-              <span class="toolbar-title">LEFT → RIGHT · Reporter → Resolved</span>
+              <span class="toolbar-title">{{ 'home.archToolbarFlow' | translate }}</span>
               <span class="pattern-pill subtle">Clean Architecture · DDD</span>
               <span class="active-label" aria-live="polite">
                 @if (!reducedMotion) {
@@ -107,9 +96,9 @@
               </span>
             </div>
             <div class="toolbar-right">
-              <span class="live" [class.on]="playing()" aria-live="polite">{{ playing() ? 'Live' : 'Paused' }}</span>
+              <span class="live" [class.on]="playing()" aria-live="polite">{{ playing() ? ('home.live' | translate) : ('home.paused' | translate) }}</span>
               <button type="button" class="btn tiny" (click)="toggle()" [attr.aria-label]="playing() ? 'Pause animation' : 'Play animation'">
-                {{ playing() ? 'Pause' : 'Play' }}
+                {{ playing() ? ('home.pause' | translate) : ('home.play' | translate) }}
               </button>
             </div>
           </div>
@@ -335,9 +324,7 @@
           </div>
 
           <p class="arch-caption">
-            Reporter never writes an incident directly. <strong>POST /api/v1/reports</strong> commits <code>reports + outbox_events</code> atomically;
-            <code>report.created</code> via RabbitMQ opens the incident idempotently. Operator drives the lifecycle via
-            <code>GET</code> and <code>PATCH /api/v1/incidents/&#123;id&#125;/status</code>.
+            {{ 'home.archCaption' | translate }}
           </p>
 
           <details class="a11y-details">
@@ -351,11 +338,9 @@
     <section class="section closing" aria-labelledby="demo-title">
       <div class="wrap closing-grid">
         <div>
-          <h2 id="demo-title" class="h2">What this project demonstrates</h2>
+          <h2 id="demo-title" class="h2">{{ 'home.closingTitle' | translate }}</h2>
           <p class="intro">
-            Built as a practical exploration of modern software engineering using
-            Java, Spring Boot, microservices, event-driven architecture, security,
-            automated testing and CI/CD.
+            {{ 'home.closingIntro' | translate }}
           </p>
         </div>
         <div>
@@ -368,9 +353,9 @@
             <span>Actuator · Prometheus · Correlation IDs</span>
           </div>
           <div class="closing-ctas">
-            <a class="btn primary" routerLink="/reports/new">Report an Issue</a>
+            <a class="btn primary" routerLink="/reports/new">{{ 'home.closingCtaReport' | translate }}</a>
             @if (hasOperator()) {
-              <a class="btn ghost" routerLink="/operator/dashboard">Operator dashboard</a>
+              <a class="btn ghost" routerLink="/operator/dashboard">{{ 'home.closingCtaOperator' | translate }}</a>
             }
           </div>
         </div>
@@ -381,16 +366,16 @@
   <footer class="footer">
     <div class="wrap footer-inner">
       <div class="footer-brand">
-        <strong>CBA Clean</strong>
-        <span>Urban Waste Incident Management Platform — Cochabamba, Bolivia</span>
-        <span class="small">Independent portfolio project · Not an official municipal service</span>
+        <strong>{{ 'home.titleKicker' | translate }}</strong>
+        <span>{{ 'home.footerTagline' | translate }}</span>
+        <span class="small">{{ 'home.footerSubtagline' | translate }}</span>
       </div>
       <nav class="footer-links" aria-label="Footer">
-        <a href="https://github.com/luisarce02/cba-clean" target="_blank" rel="noopener noreferrer">GitHub repository</a>
+        <a href="https://github.com/luisarce02/cba-clean" target="_blank" rel="noopener noreferrer">{{ 'home.footerGithub' | translate }}</a>
         @if (!isProduction) {
-          <a href="http://localhost:8080/swagger-ui.html" target="_blank" rel="noopener noreferrer">API docs</a>
+          <a href="http://localhost:8080/swagger-ui.html" target="_blank" rel="noopener noreferrer">{{ 'home.footerApiDocs' | translate }}</a>
         }
-        <a href="#arch" (click)="scrollTo('arch', $event)">Architecture</a>
+        <a href="#arch" (click)="scrollTo('arch', $event)">{{ 'home.footerArch' | translate }}</a>
       </nav>
     </div>
   </footer>

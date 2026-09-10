@@ -2,22 +2,29 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from './core/services/auth.service';
+import { Locale, TranslationService } from './core/services/translation.service';
 import { NavigationComponent } from './shared/components/navigation/navigation.component';
+import { TranslatePipe } from './shared/pipes/translate.pipe';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, NavigationComponent],
+  imports: [RouterOutlet, RouterLink, NavigationComponent, TranslatePipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  readonly translation = inject(TranslationService);
 
   readonly isAuthenticated = toSignal(this.authService.isAuthenticated$, { initialValue: false });
   readonly isDemoVisitor = computed(() => !this.isAuthenticated());
   readonly username = signal('');
+
+  setLocale(locale: Locale): void {
+    this.translation.setLocale(locale);
+  }
 
   async ngOnInit(): Promise<void> {
     const urlParams = new URLSearchParams(window.location.search);

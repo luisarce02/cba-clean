@@ -5,6 +5,8 @@ import com.cbclean.incident.domain.model.InvalidIncidentException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -17,10 +19,24 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Messages are localized (English / Spanish) from the request's
+ * Accept-Language header via {@link MessageSource}; see {@link LocaleConfig}.
+ */
 @RestControllerAdvice
 public class GlobalRestExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalRestExceptionHandler.class);
+
+    private final MessageSource messageSource;
+
+    public GlobalRestExceptionHandler(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+    }
 
     @Schema(description = "Error body returned by all non-2xx responses")
     public record ApiErrorResponse(
@@ -33,14 +49,14 @@ public class GlobalRestExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         List<Map<String, String>> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
-                .map(err -> Map.of("field", err.getField(), "message", err.getDefaultMessage() == null ? "invalid value" : err.getDefaultMessage()))
+                .map(err -> Map.of("field", err.getField(), "message", err.getDefaultMessage() == null ? msg("error.invalidFieldValue") : err.getDefaultMessage()))
                 .toList();
-        return badRequest("Request validation failed", fieldErrors);
+        return badRequest(msg("error.validationFailed"), fieldErrors);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handleUnreadable(HttpMessageNotReadableException ex) {
-        return badRequest("Malformed request body", null);
+        return badRequest(msg("error.malformedBody"), null);
     }
 
     @ExceptionHandler(InvalidIncidentException.class)
@@ -61,24 +77,24 @@ public class GlobalRestExceptionHandler {
     @ExceptionHandler(IncidentNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFound(IncidentNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                new ApiErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found", ex.getMessage(), null, Instant.now()));
+                new ApiErrorResponse(HttpStatus.NOT_FOUND.value(), msg("error.notFound"), msg("error.incidentNotFound", ex.getId()), null, Instant.now()));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNoResource(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                new ApiErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found", "Resource not found", null, Instant.now()));
+                new ApiErrorResponse(HttpStatus.NOT_FOUND.value(), msg("error.notFound"), msg("error.resourceNotFound"), null, Instant.now()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unhandled exception while processing request", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                new ApiErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error", "An unexpected error occurred", null, Instant.now()));
+                new ApiErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), msg("error.internalServerError"), msg("error.unexpectedError"), null, Instant.now()));
     }
 
-    private static ResponseEntity<ApiErrorResponse> badRequest(String message, List<Map<String, String>> fieldErrors) {
+    private ResponseEntity<ApiErrorResponse> badRequest(String message, List<Map<String, String>> fieldErrors) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                new ApiErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request", message, fieldErrors, Instant.now()));
+                new ApiErrorResponse(HttpStatus.BAD_REQUEST.value(), msg("error.badRequest"), message, fieldErrors, Instant.now()));
     }
 }

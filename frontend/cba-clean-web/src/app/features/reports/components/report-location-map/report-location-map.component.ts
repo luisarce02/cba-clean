@@ -13,13 +13,14 @@ import {
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import * as L from 'leaflet';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 
 L.Icon.Default.imagePath = 'https://unpkg.com/leaflet@1.9.4/dist/images/';
 
 @Component({
   selector: 'app-report-location-map',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, TranslatePipe],
   templateUrl: './report-location-map.component.html',
   styleUrl: './report-location-map.component.scss',
 })

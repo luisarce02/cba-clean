@@ -1,60 +1,60 @@
 <section class="operator-dashboard">
-  <h1>Operator Dashboard</h1>
+  <h1>{{ 'operatorDashboard.title' | translate }}</h1>
 
   @if (isDemoVisitor()) {
     <p class="demo-context-note">
-      Showing sample incident data for demonstration purposes. Sign in with an operator account to view live incidents.
+      {{ 'operatorDashboard.demoContextNote' | translate }}
     </p>
   }
 
   <div class="overview">
-    <h2>Operations Overview</h2>
+    <h2>{{ 'operatorDashboard.overviewTitle' | translate }}</h2>
     <div class="cards">
       <div class="card">
-        <h3>Reports</h3>
-        <p>View citizen-submitted waste reports.</p>
+        <h3>{{ 'operatorDashboard.reportsCardTitle' | translate }}</h3>
+        <p>{{ 'operatorDashboard.reportsCardBody' | translate }}</p>
         @if (isDemoVisitor()) {
-          <span class="btn btn-primary btn-disabled" aria-disabled="true" title="Sign in to access">View Reports</span>
+          <span class="btn btn-primary btn-disabled" aria-disabled="true" [title]="'operatorDashboard.signInToAccess' | translate">{{ 'operatorDashboard.viewReports' | translate }}</span>
         } @else {
-          <a routerLink="/operator/reports" class="btn btn-primary">View Reports</a>
+          <a routerLink="/operator/reports" class="btn btn-primary">{{ 'operatorDashboard.viewReports' | translate }}</a>
         }
       </div>
       <div class="card">
-        <h3>Incidents</h3>
-        <p>Manage incidents derived from reports.</p>
+        <h3>{{ 'operatorDashboard.incidentsCardTitle' | translate }}</h3>
+        <p>{{ 'operatorDashboard.incidentsCardBody' | translate }}</p>
         @if (isDemoVisitor()) {
-          <span class="btn btn-primary btn-disabled" aria-disabled="true" title="Sign in to access">View Incidents</span>
+          <span class="btn btn-primary btn-disabled" aria-disabled="true" [title]="'operatorDashboard.signInToAccess' | translate">{{ 'operatorDashboard.viewIncidents' | translate }}</span>
         } @else {
-          <a routerLink="/operator/incidents" class="btn btn-primary">View Incidents</a>
+          <a routerLink="/operator/incidents" class="btn btn-primary">{{ 'operatorDashboard.viewIncidents' | translate }}</a>
         }
       </div>
       <div class="card">
-        <h3>Operational Metrics</h3>
-        <p>View system metrics and health.</p>
+        <h3>{{ 'operatorDashboard.metricsCardTitle' | translate }}</h3>
+        <p>{{ 'operatorDashboard.metricsCardBody' | translate }}</p>
         @if (isDemoVisitor()) {
-          <span class="btn btn-primary btn-disabled" aria-disabled="true" title="Sign in to access">View Metrics</span>
+          <span class="btn btn-primary btn-disabled" aria-disabled="true" [title]="'operatorDashboard.signInToAccess' | translate">{{ 'operatorDashboard.viewMetrics' | translate }}</span>
         } @else {
-          <a routerLink="/operator/metrics" class="btn btn-primary">View Metrics</a>
+          <a routerLink="/operator/metrics" class="btn btn-primary">{{ 'operatorDashboard.viewMetrics' | translate }}</a>
         }
       </div>
     </div>
   </div>
 
   <div class="time-filter">
-    <h2>Incidents by Time Range</h2>
+    <h2>{{ 'operatorDashboard.timeRangeTitle' | translate }}</h2>
     @if (isDemoVisitor()) {
       <p class="filter-demo-hint" data-testid="filter-demo-hint">
-        Demo data — date filters are disabled in read-only mode.
+        {{ 'operatorDashboard.filterDemoHint' | translate }}
       </p>
     }
     <div class="filter-controls">
       <div class="preset-buttons">
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'today'" [disabled]="isDemoVisitor()" (click)="selectPreset('today')">Today</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last24h'" [disabled]="isDemoVisitor()" (click)="selectPreset('last24h')">Last 24 hours</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last5d'" [disabled]="isDemoVisitor()" (click)="selectPreset('last5d')">Last 5 days</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last2w'" [disabled]="isDemoVisitor()" (click)="selectPreset('last2w')">Last 2 weeks</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'lastMonth'" [disabled]="isDemoVisitor()" (click)="selectPreset('lastMonth')">Last month</button>
-        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'custom'" [disabled]="isDemoVisitor()" (click)="selectPreset('custom')">Custom range</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'today'" [disabled]="isDemoVisitor()" (click)="selectPreset('today')">{{ 'operatorDashboard.presetToday' | translate }}</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last24h'" [disabled]="isDemoVisitor()" (click)="selectPreset('last24h')">{{ 'operatorDashboard.presetLast24h' | translate }}</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last5d'" [disabled]="isDemoVisitor()" (click)="selectPreset('last5d')">{{ 'operatorDashboard.presetLast5d' | translate }}</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'last2w'" [disabled]="isDemoVisitor()" (click)="selectPreset('last2w')">{{ 'operatorDashboard.presetLast2w' | translate }}</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'lastMonth'" [disabled]="isDemoVisitor()" (click)="selectPreset('lastMonth')">{{ 'operatorDashboard.presetLastMonth' | translate }}</button>
+        <button type="button" class="btn btn-preset" [class.active]="selectedPreset() === 'custom'" [disabled]="isDemoVisitor()" (click)="selectPreset('custom')">{{ 'operatorDashboard.presetCustom' | translate }}</button>
       </div>
       @if (isCustomRange() || isDemoVisitor()) {
         <div class="custom-range">
@@ -67,24 +67,24 @@
               mechanisms cannot share one element.
             -->
             <label class="date-label">
-              From
+              {{ 'operatorDashboard.from' | translate }}
               <input type="date" class="date-input" disabled data-testid="filter-date-from">
             </label>
             <label class="date-label">
-              To
+              {{ 'operatorDashboard.to' | translate }}
               <input type="date" class="date-input" disabled data-testid="filter-date-to">
             </label>
-            <button type="button" class="btn btn-primary" disabled>Apply</button>
+            <button type="button" class="btn btn-primary" disabled>{{ 'operatorDashboard.apply' | translate }}</button>
           } @else {
             <label class="date-label">
-              From
+              {{ 'operatorDashboard.from' | translate }}
               <input type="date" [ngModel]="customFrom()" (ngModelChange)="onCustomFromChange($event)" class="date-input" data-testid="filter-date-from">
             </label>
             <label class="date-label">
-              To
+              {{ 'operatorDashboard.to' | translate }}
               <input type="date" [ngModel]="customTo()" (ngModelChange)="onCustomToChange($event)" class="date-input" data-testid="filter-date-to">
             </label>
-            <button type="button" class="btn btn-primary" [disabled]="!isCustomRangeValid()" (click)="applyCustomRange()">Apply</button>
+            <button type="button" class="btn btn-primary" [disabled]="!isCustomRangeValid()" (click)="applyCustomRange()">{{ 'operatorDashboard.apply' | translate }}</button>
           }
         </div>
       }
@@ -93,65 +93,65 @@
 
   @if (!loading() && !error() && incidents().length > 0) {
     <div class="summary">
-      <h2>Incidents Summary</h2>
+      <h2>{{ 'operatorDashboard.summaryTitle' | translate }}</h2>
       <div class="summary-grid">
-        <div class="summary-item"><span class="summary-count">{{ summary().newCount }}</span><span class="summary-label">New</span></div>
-        <div class="summary-item"><span class="summary-count">{{ summary().assignedCount }}</span><span class="summary-label">Assigned</span></div>
-        <div class="summary-item"><span class="summary-count">{{ summary().inProgressCount }}</span><span class="summary-label">In Progress</span></div>
-        <div class="summary-item"><span class="summary-count">{{ summary().resolvedCount }}</span><span class="summary-label">Resolved</span></div>
-        <div class="summary-item"><span class="summary-count">{{ summary().cancelledCount }}</span><span class="summary-label">Cancelled</span></div>
-        <div class="summary-item total"><span class="summary-count">{{ summary().total }}</span><span class="summary-label">Total</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().newCount }}</span><span class="summary-label">{{ 'operatorDashboard.summaryNew' | translate }}</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().assignedCount }}</span><span class="summary-label">{{ 'operatorDashboard.summaryAssigned' | translate }}</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().inProgressCount }}</span><span class="summary-label">{{ 'operatorDashboard.summaryInProgress' | translate }}</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().resolvedCount }}</span><span class="summary-label">{{ 'operatorDashboard.summaryResolved' | translate }}</span></div>
+        <div class="summary-item"><span class="summary-count">{{ summary().cancelledCount }}</span><span class="summary-label">{{ 'operatorDashboard.summaryCancelled' | translate }}</span></div>
+        <div class="summary-item total"><span class="summary-count">{{ summary().total }}</span><span class="summary-label">{{ 'operatorDashboard.summaryTotal' | translate }}</span></div>
       </div>
     </div>
   }
 
   <div class="recent-incidents">
-    <h2>Recent Incidents</h2>
+    <h2>{{ 'operatorDashboard.recentIncidents' | translate }}</h2>
 
     @if (loading()) {
-      <p class="state-message">Loading incidents…</p>
+      <p class="state-message">{{ 'operatorDashboard.loadingIncidents' | translate }}</p>
     } @else if (error()) {
       <div class="state-error">
-        <p>Failed to load incidents: {{ error() }}</p>
-        <button type="button" class="btn btn-secondary" (click)="loadIncidents()">Retry</button>
+        <p>{{ 'operatorDashboard.loadFailedPrefix' | translate }} {{ error() }}</p>
+        <button type="button" class="btn btn-secondary" (click)="loadIncidents()">{{ 'operatorDashboard.retry' | translate }}</button>
       </div>
     } @else if (incidents().length === 0) {
-      <p class="state-message">No incidents found for the selected time range.</p>
+      <p class="state-message">{{ 'operatorDashboard.noIncidentsFound' | translate }}</p>
     } @else {
       <div class="incident-list">
         @for (incident of incidents(); track incident.id) {
           <div class="incident-card">
             <div class="incident-header">
-              <span class="incident-id">Incident {{ incident.id | slice:0:8 }}</span>
+              <span class="incident-id">{{ 'operatorDashboard.incidentPrefix' | translate }} {{ incident.id | slice:0:8 }}</span>
               <span class="status-badge">
                 <span class="status-indicator" [ngClass]="statusClass(incident.status)" [attr.aria-label]="incident.status"></span>
                 <span class="status-text">{{ incident.status }}</span>
               </span>
             </div>
             <div class="incident-details">
-              <span class="detail">Type: {{ typeLabels[incident.type] ?? incident.type }}</span>
-              <span class="detail">Priority: {{ priorityLabels[incident.priority] ?? incident.priority }}</span>
-              <span class="detail">Created: {{ incident.createdAt | date:'mediumDate' }}</span>
+              <span class="detail">{{ 'operatorDashboard.typePrefix' | translate }} {{ typeLabels()[incident.type] ?? incident.type }}</span>
+              <span class="detail">{{ 'operatorDashboard.priorityPrefix' | translate }} {{ priorityLabels()[incident.priority] ?? incident.priority }}</span>
+              <span class="detail">{{ 'operatorDashboard.createdPrefix' | translate }} {{ incident.createdAt | date:'mediumDate' }}</span>
               @if (incident.location.address) {
-                <span class="detail">Location: {{ incident.location.address }}</span>
+                <span class="detail">{{ 'operatorDashboard.locationPrefix' | translate }} {{ incident.location.address }}</span>
               } @else {
-                <span class="detail">Location: {{ incident.location.latitude | number:'1.4-4' }}, {{ incident.location.longitude | number:'1.4-4' }}</span>
+                <span class="detail">{{ 'operatorDashboard.locationPrefix' | translate }} {{ incident.location.latitude | number:'1.4-4' }}, {{ incident.location.longitude | number:'1.4-4' }}</span>
               }
             </div>
             @if (isDemoVisitor()) {
-              <span class="btn btn-secondary btn-disabled" aria-disabled="true" title="Sign in to view full details">View Details</span>
+              <span class="btn btn-secondary btn-disabled" aria-disabled="true" [title]="'operatorDashboard.signInToViewDetails' | translate">{{ 'operatorDashboard.viewDetails' | translate }}</span>
             } @else {
-              <a [routerLink]="['/operator/incidents', incident.id]" class="btn btn-secondary">View Details</a>
+              <a [routerLink]="['/operator/incidents', incident.id]" class="btn btn-secondary">{{ 'operatorDashboard.viewDetails' | translate }}</a>
             }
           </div>
         }
       </div>
       @if (totalPages() > 1) {
         <div class="pagination">
-          <span class="page-info">Page {{ currentPage() + 1 }} of {{ totalPages() }}</span>
+          <span class="page-info">{{ 'operatorDashboard.pageInfo' | translate:{ current: currentPage() + 1, total: totalPages() } }}</span>
           <div class="page-controls">
-            <button type="button" class="btn btn-secondary" [disabled]="!hasPreviousPage()" (click)="previousPage()">Previous</button>
-            <button type="button" class="btn btn-secondary" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+            <button type="button" class="btn btn-secondary" [disabled]="!hasPreviousPage()" (click)="previousPage()">{{ 'operatorDashboard.previous' | translate }}</button>
+            <button type="button" class="btn btn-secondary" [disabled]="!hasNextPage()" (click)="nextPage()">{{ 'operatorDashboard.next' | translate }}</button>
           </div>
         </div>
       }

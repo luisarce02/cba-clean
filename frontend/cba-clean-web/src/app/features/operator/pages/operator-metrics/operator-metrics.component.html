@@ -1,22 +1,22 @@
 <section class="operator-metrics">
   <div class="header">
     <div>
-      <h1>Operational Metrics</h1>
-      <p class="subtitle">System metrics and health overview — OPERATOR only.</p>
+      <h1>{{ 'operatorMetrics.title' | translate }}</h1>
+      <p class="subtitle">{{ 'operatorMetrics.subtitle' | translate }}</p>
     </div>
-    <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">Refresh</button>
+    <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">{{ 'operatorMetrics.refresh' | translate }}</button>
   </div>
 
   @if (lastUpdated()) {
-    <p class="last-updated">Last updated: {{ lastUpdated() }}</p>
+    <p class="last-updated">{{ 'operatorMetrics.lastUpdated' | translate:{ time: lastUpdated()! } }}</p>
   }
 
   @if (loading()) {
-    <p class="state-message">Loading metrics…</p>
+    <p class="state-message">{{ 'operatorMetrics.loading' | translate }}</p>
   } @else if (error() && cards().every(c => c.raw == null)) {
     <div class="state-error">
       <p>{{ error() }}</p>
-      <button type="button" class="btn btn-secondary" (click)="load()">Retry</button>
+      <button type="button" class="btn btn-secondary" (click)="load()">{{ 'operatorMetrics.retry' | translate }}</button>
     </div>
   } @else {
     <div class="metrics-grid">
@@ -36,6 +36,6 @@
       <div class="state-error" style="margin-top:1rem;"><p>{{ error() }}</p></div>
     }
 
-    <p class="hint">Metrics from <code>/actuator/metrics</code> and <code>/actuator/prometheus</code> (OPERATOR). Polling via manual refresh.</p>
+    <p class="hint">{{ 'operatorMetrics.hint' | translate }}</p>
   }
 </section>

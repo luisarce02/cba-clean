@@ -43,11 +43,26 @@ export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
   CANCELLED: 'Cancelled',
 };
 
+export const INCIDENT_STATUS_LABELS_ES: Record<IncidentStatus, string> = {
+  NEW: 'Nuevo',
+  ASSIGNED: 'Asignado',
+  IN_PROGRESS: 'En Progreso',
+  RESOLVED: 'Resuelto',
+  CANCELLED: 'Cancelado',
+};
+
 export const INCIDENT_PRIORITY_LABELS: Record<IncidentPriority, string> = {
   LOW: 'Low',
   NORMAL: 'Normal',
   HIGH: 'High',
   CRITICAL: 'Critical',
+};
+
+export const INCIDENT_PRIORITY_LABELS_ES: Record<IncidentPriority, string> = {
+  LOW: 'Baja',
+  NORMAL: 'Normal',
+  HIGH: 'Alta',
+  CRITICAL: 'Crítica',
 };
 
 export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
@@ -57,4 +72,13 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
   BULKY_WASTE: 'Bulky Waste',
   MISSED_COLLECTION: 'Missed Collection',
   OTHER: 'Other',
+};
+
+export const INCIDENT_TYPE_LABELS_ES: Record<IncidentType, string> = {
+  LITTER: 'Basura',
+  ILLEGAL_DUMPING: 'Vertido Ilegal',
+  OVERFLOWING_BIN: 'Contenedor Desbordado',
+  BULKY_WASTE: 'Residuo Voluminoso',
+  MISSED_COLLECTION: 'Recolección Perdida',
+  OTHER: 'Otro',
 };

@@ -27,8 +27,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         com.cbclean.report.presentation.security.ReportServiceSecurityConfig.class,
         com.cbclean.report.presentation.security.RestAuthenticationEntryPoint.class,
         com.cbclean.report.presentation.security.RestAccessDeniedHandler.class,
-        com.cbclean.report.presentation.security.RolesClaimAuthenticationConverter.class})
+        com.cbclean.report.presentation.security.RolesClaimAuthenticationConverter.class,
+        com.cbclean.report.presentation.LocaleConfig.class})
 @org.springframework.security.test.context.support.WithMockUser(authorities = "ROLE_REPORTER")
 class ReportControllerTest {
 
@@ -177,6 +180,28 @@ class ReportControllerTest {
                         .content("{ not valid json "))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Malformed request body"));
+    }
+
+    @Test
+    void spanishAcceptLanguageLocalizesErrorMessages() throws Exception {
+        mockMvc.perform(post("/api/v1/reports")
+                        .header("Accept-Language", "es")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ not valid json "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Solicitud incorrecta"))
+                .andExpect(jsonPath("$.message").value("Cuerpo de la solicitud mal formado"));
+    }
+
+    @Test
+    void spanishAcceptLanguageLocalizesFieldValidationMessages() throws Exception {
+        mockMvc.perform(post("/api/v1/reports")
+                        .header("Accept-Language", "es")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Solicitud incorrecta"))
+                .andExpect(content().string(containsString("es obligatorio")));
     }
 
     @Test

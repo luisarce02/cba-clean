@@ -3,16 +3,19 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ReportService } from '../../../reports/services/report.service';
 import { ReportResponse } from '../../../reports/models/report.model';
+import { TranslationService } from '../../../../core/services/translation.service';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 
 @Component({
   selector: 'app-operator-reports',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, TranslatePipe],
   templateUrl: './operator-reports.component.html',
   styleUrl: './operator-reports.component.scss',
 })
 export class OperatorReportsComponent implements OnInit {
   private readonly reportService = inject(ReportService);
+  private readonly translation = inject(TranslationService);
 
   readonly reports = signal<ReportResponse[]>([]);
   readonly loading = signal(true);
@@ -40,7 +43,7 @@ export class OperatorReportsComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        const msg = err?.error?.message ?? err?.message ?? 'Failed to load reports';
+        const msg = err?.error?.message ?? err?.message ?? this.translation.t('operatorReports.loadFailed');
         this.error.set(msg);
         this.loading.set(false);
       },

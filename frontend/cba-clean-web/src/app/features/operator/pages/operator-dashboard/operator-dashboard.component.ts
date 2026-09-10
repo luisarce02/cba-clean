@@ -4,8 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { IncidentService } from '../../../incidents/services/incidents.service';
-import { IncidentResponse, INCIDENT_STATUS_LABELS, INCIDENT_PRIORITY_LABELS, INCIDENT_TYPE_LABELS } from '../../../incidents/models/incidents.model';
+import {
+  IncidentResponse,
+  INCIDENT_STATUS_LABELS,
+  INCIDENT_STATUS_LABELS_ES,
+  INCIDENT_PRIORITY_LABELS,
+  INCIDENT_PRIORITY_LABELS_ES,
+  INCIDENT_TYPE_LABELS,
+  INCIDENT_TYPE_LABELS_ES,
+} from '../../../incidents/models/incidents.model';
 import { AuthService } from '../../../../core/services/auth.service';
+import { TranslationService } from '../../../../core/services/translation.service';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 import { DEMO_INCIDENTS } from './operator-dashboard.demo-data';
 
 type TimeRangePreset = 'today' | 'last24h' | 'last5d' | 'last2w' | 'lastMonth' | 'custom';
@@ -13,13 +23,14 @@ type TimeRangePreset = 'today' | 'last24h' | 'last5d' | 'last2w' | 'lastMonth' |
 @Component({
   selector: 'app-operator-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './operator-dashboard.component.html',
   styleUrl: './operator-dashboard.component.scss',
 })
 export class OperatorDashboardComponent implements OnInit {
   private readonly incidentService = inject(IncidentService);
   private readonly authService = inject(AuthService);
+  private readonly translation = inject(TranslationService);
 
   readonly isAuthenticated = toSignal(this.authService.isAuthenticated$, { initialValue: false });
   /** Absence of authentication only — never a role. Drives the read-only demo experience. */
@@ -37,9 +48,9 @@ export class OperatorDashboardComponent implements OnInit {
   readonly customFrom = signal('');
   readonly customTo = signal('');
 
-  readonly statusLabels = INCIDENT_STATUS_LABELS;
-  readonly priorityLabels = INCIDENT_PRIORITY_LABELS;
-  readonly typeLabels = INCIDENT_TYPE_LABELS;
+  readonly statusLabels = computed(() => (this.translation.locale() === 'es' ? INCIDENT_STATUS_LABELS_ES : INCIDENT_STATUS_LABELS));
+  readonly priorityLabels = computed(() => (this.translation.locale() === 'es' ? INCIDENT_PRIORITY_LABELS_ES : INCIDENT_PRIORITY_LABELS));
+  readonly typeLabels = computed(() => (this.translation.locale() === 'es' ? INCIDENT_TYPE_LABELS_ES : INCIDENT_TYPE_LABELS));
 
   readonly summary = computed(() => {
     const list = this.incidents();
@@ -87,7 +98,7 @@ export class OperatorDashboardComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        const msg = err?.error?.message ?? err?.message ?? 'Failed to load incidents';
+        const msg = err?.error?.message ?? err?.message ?? this.translation.t('operatorDashboard.loadFailedDefault');
         this.error.set(msg);
         this.loading.set(false);
       },
