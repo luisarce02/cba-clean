@@ -3,18 +3,28 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { IncidentService } from '../../services/incidents.service';
-import { IncidentResponse, IncidentStatus, INCIDENT_TYPE_LABELS, INCIDENT_PRIORITY_LABELS } from '../../models/incidents.model';
+import {
+  IncidentResponse,
+  IncidentStatus,
+  INCIDENT_TYPE_LABELS,
+  INCIDENT_TYPE_LABELS_ES,
+  INCIDENT_PRIORITY_LABELS,
+  INCIDENT_PRIORITY_LABELS_ES,
+} from '../../models/incidents.model';
+import { TranslationService } from '../../../../core/services/translation.service';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 
 @Component({
   selector: 'app-incident-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe],
   templateUrl: './incident-detail.component.html',
   styleUrl: './incident-detail.component.scss',
 })
 export class IncidentDetailComponent implements OnInit {
   private readonly incidentService = inject(IncidentService);
   private readonly route = inject(ActivatedRoute);
+  private readonly translation = inject(TranslationService);
 
   readonly incident = signal<IncidentResponse | null>(null);
   readonly loading = signal(true);
@@ -27,8 +37,8 @@ export class IncidentDetailComponent implements OnInit {
   readonly selectedStatus = signal<IncidentStatus | ''>('');
   readonly closingNote = signal('');
 
-  readonly typeLabels = INCIDENT_TYPE_LABELS;
-  readonly priorityLabels = INCIDENT_PRIORITY_LABELS;
+  readonly typeLabels = computed(() => (this.translation.locale() === 'es' ? INCIDENT_TYPE_LABELS_ES : INCIDENT_TYPE_LABELS));
+  readonly priorityLabels = computed(() => (this.translation.locale() === 'es' ? INCIDENT_PRIORITY_LABELS_ES : INCIDENT_PRIORITY_LABELS));
 
   readonly availableTransitions = computed<IncidentStatus[]>(() => {
     const status = this.incident()?.status;
@@ -44,7 +54,7 @@ export class IncidentDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.error.set('Missing incident id');
+      this.error.set(this.translation.t('incidentDetail.missingId'));
       this.loading.set(false);
       return;
     }
@@ -64,7 +74,7 @@ export class IncidentDetailComponent implements OnInit {
         this.updateSuccess.set(null);
       },
       error: (err) => {
-        const msg = err?.error?.message ?? err?.message ?? 'Failed to load incident';
+        const msg = err?.error?.message ?? err?.message ?? this.translation.t('incidentDetail.loadFailed');
         this.error.set(msg);
         this.loading.set(false);
       },
@@ -102,14 +112,14 @@ export class IncidentDetailComponent implements OnInit {
       next: (updated) => {
         this.incident.set(updated);
         this.updating.set(false);
-        this.updateSuccess.set(`Status updated to ${updated.status}`);
+        this.updateSuccess.set(this.translation.t('incidentDetail.updateSuccess', { status: updated.status }));
         this.selectedStatus.set('');
         this.closingNote.set('');
       },
       error: (err) => {
-        let msg = err?.error?.message ?? err?.message ?? 'Failed to update status';
-        if (err?.status === 403) msg = 'You do not have permission to update incidents';
-        if (err?.status === 401) msg = 'Authentication required';
+        let msg = err?.error?.message ?? err?.message ?? this.translation.t('incidentDetail.updateFailed');
+        if (err?.status === 403) msg = this.translation.t('incidentDetail.forbidden');
+        if (err?.status === 401) msg = this.translation.t('incidentDetail.unauthorized');
         this.updateError.set(msg);
         this.updating.set(false);
       },

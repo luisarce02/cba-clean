@@ -11,16 +11,19 @@ import {
   ReportResponse,
   ReportType,
   REPORT_TYPE_LABELS,
+  REPORT_TYPE_LABELS_ES,
   REPORT_TYPE_VALUES,
 } from '../../models/report.model';
 import { ErrorDisplayComponent } from '../../../../shared/components/error-display/error-display.component';
 import { ErrorModalComponent } from '../../../../shared/components/error-modal/error-modal.component';
 import { ReportLocationMapComponent } from '../../components/report-location-map/report-location-map.component';
+import { TranslationService } from '../../../../core/services/translation.service';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 
 @Component({
   selector: 'app-report-form-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ErrorDisplayComponent, ErrorModalComponent, ReportLocationMapComponent],
+  imports: [CommonModule, ReactiveFormsModule, ErrorDisplayComponent, ErrorModalComponent, ReportLocationMapComponent, TranslatePipe],
   templateUrl: './report-form-page.component.html',
   styleUrl: './report-form-page.component.scss',
 })
@@ -29,9 +32,12 @@ export class ReportFormPageComponent {
   private readonly reportService = inject(ReportService);
   private readonly authService = inject(AuthService);
   readonly errorService = inject(ErrorService);
+  private readonly translation = inject(TranslationService);
 
   readonly reportTypes = REPORT_TYPE_VALUES;
-  readonly reportTypeLabels = REPORT_TYPE_LABELS;
+  readonly reportTypeLabels = computed(() =>
+    this.translation.locale() === 'es' ? REPORT_TYPE_LABELS_ES : REPORT_TYPE_LABELS,
+  );
   readonly submittedReport = signal<ReportResponse | null>(null);
   readonly isSubmitting = signal(false);
   readonly showErrorModal = signal(false);
@@ -168,30 +174,31 @@ export class ReportFormPageComponent {
     const field = this.reportForm.get(fieldName);
     if (!field || !field.errors || !field.touched) return '';
 
-    if (field.errors['required']) return `${this.getFieldLabel(fieldName)} is required.`;
+    if (field.errors['required']) return this.translation.t('reportForm.fieldRequired', { field: this.getFieldLabel(fieldName) });
     if (field.errors['maxlength']) {
       const max = field.errors['maxlength'].requiredLength;
-      return `${this.getFieldLabel(fieldName)} must not exceed ${max} characters.`;
+      return this.translation.t('reportForm.fieldMaxLength', { field: this.getFieldLabel(fieldName), max });
     }
-    if (field.errors['min']) return `${this.getFieldLabel(fieldName)} is too small.`;
-    if (field.errors['max']) return `${this.getFieldLabel(fieldName)} is too large.`;
-    if (field.errors['email']) return 'Please enter a valid email address.';
-    if (field.errors['pattern']) return 'Please enter a valid phone number.';
+    if (field.errors['min']) return this.translation.t('reportForm.fieldTooSmall', { field: this.getFieldLabel(fieldName) });
+    if (field.errors['max']) return this.translation.t('reportForm.fieldTooLarge', { field: this.getFieldLabel(fieldName) });
+    if (field.errors['email']) return this.translation.t('reportForm.invalidEmail');
+    if (field.errors['pattern']) return this.translation.t('reportForm.invalidPhone');
 
     return '';
   }
 
   private getFieldLabel(fieldName: string): string {
-    const labels: Record<string, string> = {
-      reportType: 'Report type',
-      description: 'Description',
-      latitude: 'Latitude',
-      longitude: 'Longitude',
-      address: 'Address',
-      reporterName: 'Name',
-      reporterEmail: 'Email',
-      reporterPhone: 'Phone',
+    const keys: Record<string, string> = {
+      reportType: 'reportForm.fieldLabelReportType',
+      description: 'reportForm.fieldLabelDescription',
+      latitude: 'reportForm.fieldLabelLatitude',
+      longitude: 'reportForm.fieldLabelLongitude',
+      address: 'reportForm.fieldLabelAddress',
+      reporterName: 'reportForm.fieldLabelName',
+      reporterEmail: 'reportForm.fieldLabelEmail',
+      reporterPhone: 'reportForm.fieldLabelPhone',
     };
-    return labels[fieldName] ?? fieldName;
+    const key = keys[fieldName];
+    return key ? this.translation.t(key) : fieldName;
   }
 }

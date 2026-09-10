@@ -1,43 +1,43 @@
 <section class="report-form-page">
-  <h1>Submit a Report</h1>
+  <h1>{{ 'reportForm.title' | translate }}</h1>
 
   @if (submittedReport(); as report) {
     <div class="success-panel">
-      <h2>Report Submitted Successfully</h2>
+      <h2>{{ 'reportForm.successTitle' | translate }}</h2>
       <dl class="report-summary">
-        <dt>ID</dt>
+        <dt>{{ 'reportForm.id' | translate }}</dt>
         <dd>{{ report.id }}</dd>
-        <dt>Type</dt>
-        <dd>{{ reportTypeLabels[report.type] }}</dd>
-        <dt>Status</dt>
+        <dt>{{ 'reportForm.type' | translate }}</dt>
+        <dd>{{ reportTypeLabels()[report.type] }}</dd>
+        <dt>{{ 'reportForm.status' | translate }}</dt>
         <dd>{{ report.status }}</dd>
-        <dt>Priority</dt>
+        <dt>{{ 'reportForm.priority' | translate }}</dt>
         <dd>{{ report.priority }}</dd>
-        <dt>Location</dt>
+        <dt>{{ 'reportForm.location' | translate }}</dt>
         <dd>{{ report.location.latitude }}, {{ report.location.longitude }}</dd>
         @if (report.location.address) {
-          <dt>Address</dt>
+          <dt>{{ 'reportForm.address' | translate }}</dt>
           <dd>{{ report.location.address }}</dd>
         }
         @if (report.description) {
-          <dt>Description</dt>
+          <dt>{{ 'reportForm.description' | translate }}</dt>
           <dd>{{ report.description }}</dd>
         }
-        <dt>Created</dt>
+        <dt>{{ 'reportForm.created' | translate }}</dt>
         <dd>{{ report.createdAt | date: 'medium' }}</dd>
       </dl>
-      <button type="button" class="btn" (click)="submittedReport.set(null)">Submit Another</button>
+      <button type="button" class="btn" (click)="submittedReport.set(null)">{{ 'reportForm.submitAnother' | translate }}</button>
     </div>
   } @else {
     @if (isDemoVisitor()) {
       <div class="auth-prompt demo-note">
-        <p><strong>Read-only preview.</strong> Explore the report form below — logging in with a REPORTER account is required to submit a report.</p>
-        <button type="button" class="btn btn-primary" (click)="onLogin()">Login with Keycloak</button>
+        <p><strong>{{ 'reportForm.demoReadOnly' | translate }}</strong> {{ 'reportForm.demoNote' | translate }}</p>
+        <button type="button" class="btn btn-primary" (click)="onLogin()">{{ 'reportForm.loginWithKeycloak' | translate }}</button>
       </div>
     } @else if (!hasReporterRole()) {
       <div class="auth-prompt">
-        <p>Your account does not have the required role (REPORTER) to submit reports.</p>
-        <p class="auth-hint">Contact an administrator to request access.</p>
+        <p>{{ 'reportForm.noRoleNote' | translate }}</p>
+        <p class="auth-hint">{{ 'reportForm.noRoleHint' | translate }}</p>
       </div>
     }
 
@@ -50,14 +50,14 @@
 
       <form [formGroup]="reportForm" (ngSubmit)="onSubmit()" class="report-form">
         <fieldset>
-          <legend>Report Details</legend>
+          <legend>{{ 'reportForm.detailsLegend' | translate }}</legend>
 
           <div class="form-group">
-            <label for="reportType">Report Type *</label>
+            <label for="reportType">{{ 'reportForm.reportTypeLabel' | translate }}</label>
             <select id="reportType" formControlName="reportType">
-              <option value="">Select a type...</option>
+              <option value="">{{ 'reportForm.selectType' | translate }}</option>
               @for (type of reportTypes; track type) {
-                <option [value]="type">{{ reportTypeLabels[type] }}</option>
+                <option [value]="type">{{ reportTypeLabels()[type] }}</option>
               }
             </select>
             @if (isFieldInvalid('reportType')) {
@@ -66,12 +66,12 @@
           </div>
 
           <div class="form-group">
-            <label for="description">Description</label>
+            <label for="description">{{ 'reportForm.descriptionLabel' | translate }}</label>
             <textarea
               id="description"
               formControlName="description"
               rows="4"
-              placeholder="Describe the issue..."
+              [placeholder]="'reportForm.descriptionPlaceholder' | translate"
             ></textarea>
             @if (isFieldInvalid('description')) {
               <span class="field-error">{{ getFieldError('description') }}</span>
@@ -80,7 +80,7 @@
         </fieldset>
 
         <fieldset>
-          <legend>Location</legend>
+          <legend>{{ 'reportForm.locationLegend' | translate }}</legend>
 
           <app-report-location-map
             [latitude]="reportForm.get('latitude')?.value || null"
@@ -91,13 +91,13 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="latitude">Latitude *</label>
+              <label for="latitude">{{ 'reportForm.latitudeLabel' | translate }}</label>
               <input
                 id="latitude"
                 type="number"
                 formControlName="latitude"
                 step="any"
-                placeholder="Click on the map or enter manually"
+                [placeholder]="'reportForm.mapPlaceholder' | translate"
               />
               @if (isFieldInvalid('latitude')) {
                 <span class="field-error">{{ getFieldError('latitude') }}</span>
@@ -105,13 +105,13 @@
             </div>
 
             <div class="form-group">
-              <label for="longitude">Longitude *</label>
+              <label for="longitude">{{ 'reportForm.longitudeLabel' | translate }}</label>
               <input
                 id="longitude"
                 type="number"
                 formControlName="longitude"
                 step="any"
-                placeholder="Click on the map or enter manually"
+                [placeholder]="'reportForm.mapPlaceholder' | translate"
               />
               @if (isFieldInvalid('longitude')) {
                 <span class="field-error">{{ getFieldError('longitude') }}</span>
@@ -120,8 +120,8 @@
           </div>
 
           <div class="form-group">
-            <label for="address">Address (optional)</label>
-            <input id="address" type="text" formControlName="address" placeholder="Street address..." />
+            <label for="address">{{ 'reportForm.addressLabel' | translate }}</label>
+            <input id="address" type="text" formControlName="address" [placeholder]="'reportForm.addressPlaceholder' | translate" />
             @if (isFieldInvalid('address')) {
               <span class="field-error">{{ getFieldError('address') }}</span>
             }
@@ -129,10 +129,10 @@
         </fieldset>
 
         <fieldset>
-          <legend>Contact (optional)</legend>
+          <legend>{{ 'reportForm.contactLegend' | translate }}</legend>
 
           <div class="form-group">
-            <label for="reporterName">Name</label>
+            <label for="reporterName">{{ 'reportForm.nameLabel' | translate }}</label>
             <input id="reporterName" type="text" formControlName="reporterName" />
             @if (isFieldInvalid('reporterName')) {
               <span class="field-error">{{ getFieldError('reporterName') }}</span>
@@ -141,7 +141,7 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="reporterEmail">Email</label>
+              <label for="reporterEmail">{{ 'reportForm.emailLabel' | translate }}</label>
               <input id="reporterEmail" type="email" formControlName="reporterEmail" />
               @if (isFieldInvalid('reporterEmail')) {
                 <span class="field-error">{{ getFieldError('reporterEmail') }}</span>
@@ -149,7 +149,7 @@
             </div>
 
             <div class="form-group">
-              <label for="reporterPhone">Phone</label>
+              <label for="reporterPhone">{{ 'reportForm.phoneLabel' | translate }}</label>
               <input id="reporterPhone" type="tel" formControlName="reporterPhone" />
               @if (isFieldInvalid('reporterPhone')) {
                 <span class="field-error">{{ getFieldError('reporterPhone') }}</span>
@@ -160,9 +160,9 @@
 
         <button type="submit" class="btn btn-primary" [disabled]="isSubmitting() || isDemoVisitor()">
           @if (isSubmitting()) {
-            Submitting...
+            {{ 'reportForm.submitting' | translate }}
           } @else {
-            Submit Report
+            {{ 'reportForm.submit' | translate }}
           }
         </button>
       </form>

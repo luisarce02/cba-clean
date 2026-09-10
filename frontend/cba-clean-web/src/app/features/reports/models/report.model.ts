@@ -71,6 +71,14 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   OTHER: 'Other',
 };
 
+export const REPORT_TYPE_LABELS_ES: Record<ReportType, string> = {
+  LITTER: 'Basura',
+  ILLEGAL_DUMPING: 'Vertido Ilegal',
+  OVERFLOWING_BIN: 'Contenedor Desbordado',
+  BULKY_WASTE: 'Residuo Voluminoso',
+  OTHER: 'Otro',
+};
+
 export const REPORT_TYPE_VALUES: ReportType[] = [
   'LITTER',
   'ILLEGAL_DUMPING',

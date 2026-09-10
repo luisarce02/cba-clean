@@ -5,6 +5,7 @@ import { routes } from './app.routes';
 import { correlationIdInterceptor } from './core/interceptors/correlation-id.interceptor';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { localeInterceptor } from './core/interceptors/locale.interceptor';
 import { AuthService } from './core/services/auth.service';
 
 export const appConfig: ApplicationConfig = {
@@ -13,7 +14,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(
       // error is outer, auth is inner so that auth retry happens before error handling logs the final failure
-      withInterceptors([correlationIdInterceptor, errorInterceptor, authInterceptor]),
+      withInterceptors([correlationIdInterceptor, localeInterceptor, errorInterceptor, authInterceptor]),
     ),
     {
       provide: APP_INITIALIZER,

@@ -27,7 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(IncidentController.class)
 @Import({
-        com.cbclean.incident.infrastructure.security.IncidentServiceSecurityConfig.class
+        com.cbclean.incident.infrastructure.security.IncidentServiceSecurityConfig.class,
+        com.cbclean.incident.presentation.LocaleConfig.class
 })
 @org.springframework.security.test.context.support.WithMockUser(authorities = "ROLE_OPERATOR")
 class IncidentControllerTest {
@@ -129,6 +130,17 @@ class IncidentControllerTest {
         mockMvc.perform(get("/api/v1/incidents/{id}", id))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void spanishAcceptLanguageLocalizesNotFoundMessage() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getIncidentUseCase.execute(any())).thenThrow(new IncidentNotFoundException(new IncidentId(id)));
+
+        mockMvc.perform(get("/api/v1/incidents/{id}", id).header("Accept-Language", "es"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No encontrado"))
+                .andExpect(jsonPath("$.message").value("Incidente no encontrado: " + id));
     }
 
     @Test

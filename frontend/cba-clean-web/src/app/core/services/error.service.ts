@@ -2,9 +2,11 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { ApiErrorResponse, FieldError } from '../models/api-error-response.model';
+import { TranslationService } from './translation.service';
 
 @Injectable({ providedIn: 'root' })
 export class ErrorService {
+  private readonly translation = inject(TranslationService);
   private readonly currentError$ = new BehaviorSubject<ApiErrorResponse | null>(null);
 
   readonly error$ = this.currentError$.asObservable();
@@ -57,25 +59,25 @@ export class ErrorService {
 
   private getStatusText(status: number): string {
     const map: Record<number, string> = {
-      0: 'Network Error',
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      500: 'Internal Server Error',
+      0: this.translation.t('errors.network'),
+      400: this.translation.t('errors.badRequest'),
+      401: this.translation.t('errors.unauthorized'),
+      403: this.translation.t('errors.forbidden'),
+      404: this.translation.t('errors.notFound'),
+      500: this.translation.t('errors.serverError'),
     };
-    return map[status] ?? 'Error';
+    return map[status] ?? this.translation.t('errors.generic');
   }
 
   private getDefaultMessage(status: number): string {
     const map: Record<number, string> = {
-      0: 'Unable to connect to the server. Please check your connection.',
-      400: 'The request was invalid. Please check your input.',
-      401: 'You are not authorized. Please log in.',
-      403: 'You do not have permission to perform this action.',
-      404: 'The requested resource was not found.',
-      500: 'An unexpected error occurred. Please try again later.',
+      0: this.translation.t('errors.networkMessage'),
+      400: this.translation.t('errors.badRequestMessage'),
+      401: this.translation.t('errors.unauthorizedMessage'),
+      403: this.translation.t('errors.forbiddenMessage'),
+      404: this.translation.t('errors.notFoundMessage'),
+      500: this.translation.t('errors.serverErrorMessage'),
     };
-    return map[status] ?? 'An unexpected error occurred.';
+    return map[status] ?? this.translation.t('errors.genericMessage');
   }
 }

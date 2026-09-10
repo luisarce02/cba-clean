@@ -3,16 +3,19 @@ import { CommonModule } from '@angular/common';
 import { MetricsService, MetricCard, ActuatorMetricResponse } from '../../../metrics/services/metrics.service';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { TranslationService } from '../../../../core/services/translation.service';
+import { TranslatePipe } from '../../../../shared/pipes/translate.pipe';
 
 @Component({
   selector: 'app-operator-metrics',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './operator-metrics.component.html',
   styleUrl: './operator-metrics.component.scss',
 })
 export class OperatorMetricsComponent implements OnInit {
   private readonly metricsService = inject(MetricsService);
+  private readonly translation = inject(TranslationService);
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -28,14 +31,14 @@ export class OperatorMetricsComponent implements OnInit {
     this.error.set(null);
 
     const metricsToFetch: Array<{ service: 'report' | 'incident'; name: string; label: string }> = [
-      { service: 'report', name: 'cbaclean.reports.created', label: 'Reports Created' },
-      { service: 'report', name: 'cbaclean.outbox.events.pending', label: 'Outbox Pending' },
-      { service: 'incident', name: 'cbaclean.incidents.created', label: 'Incidents Created' },
-      { service: 'incident', name: 'cbaclean.incident.events.processed', label: 'Incident Events Processed' },
-      { service: 'report', name: 'process.uptime', label: 'Report Service Uptime' },
-      { service: 'incident', name: 'process.uptime', label: 'Incident Service Uptime' },
-      { service: 'report', name: 'http.server.requests', label: 'Report HTTP Requests' },
-      { service: 'incident', name: 'http.server.requests', label: 'Incident HTTP Requests' },
+      { service: 'report', name: 'cbaclean.reports.created', label: this.translation.t('operatorMetrics.reportsCreated') },
+      { service: 'report', name: 'cbaclean.outbox.events.pending', label: this.translation.t('operatorMetrics.outboxPending') },
+      { service: 'incident', name: 'cbaclean.incidents.created', label: this.translation.t('operatorMetrics.incidentsCreated') },
+      { service: 'incident', name: 'cbaclean.incident.events.processed', label: this.translation.t('operatorMetrics.incidentEventsProcessed') },
+      { service: 'report', name: 'process.uptime', label: this.translation.t('operatorMetrics.reportServiceUptime') },
+      { service: 'incident', name: 'process.uptime', label: this.translation.t('operatorMetrics.incidentServiceUptime') },
+      { service: 'report', name: 'http.server.requests', label: this.translation.t('operatorMetrics.reportHttpRequests') },
+      { service: 'incident', name: 'http.server.requests', label: this.translation.t('operatorMetrics.incidentHttpRequests') },
     ];
 
     const observables = metricsToFetch.map((m) =>
@@ -54,7 +57,7 @@ export class OperatorMetricsComponent implements OnInit {
         const cards: MetricCard[] = results.map((res, idx) => {
           const def = metricsToFetch[idx];
           if (!res) {
-            return { label: def.label, value: '—', raw: null, source: def.name, error: 'Unavailable' };
+            return { label: def.label, value: '—', raw: null, source: def.name, error: this.translation.t('operatorMetrics.unavailable') };
           }
           const card = this.metricsService.formatValue(res, def.label);
           card.source = def.name;
@@ -65,11 +68,11 @@ export class OperatorMetricsComponent implements OnInit {
         this.lastUpdated.set(new Date().toLocaleString());
         // If all failed, show error
         if (cards.every((c) => c.raw == null)) {
-          this.error.set('Unable to load metrics. Ensure you are logged in as OPERATOR.');
+          this.error.set(this.translation.t('operatorMetrics.unableToLoad'));
         }
       },
       error: (err) => {
-        this.error.set(err?.error?.message ?? 'Failed to load metrics');
+        this.error.set(err?.error?.message ?? this.translation.t('operatorMetrics.loadFailed'));
         this.loading.set(false);
       },
     });

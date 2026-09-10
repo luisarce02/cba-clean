@@ -1,11 +1,13 @@
-import { Component, EventEmitter, Input, Output, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, EventEmitter, Input, Output, AfterViewInit, ElementRef, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiErrorResponse } from '../../../core/models/api-error-response.model';
+import { TranslationService } from '../../../core/services/translation.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-error-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   template: `
     @if (error) {
       <div class="modal-backdrop" (click)="onBackdropClick($event)" (keydown.escape)="close.emit()" role="dialog" aria-modal="true" [attr.aria-label]="title">
@@ -16,13 +18,13 @@ import { ApiErrorResponse } from '../../../core/models/api-error-response.model'
           <div class="modal-body">
             <p class="modal-message">{{ message }}</p>
             @if (error.status === 0) {
-              <p class="modal-hint">Please check your internet connection and try again.</p>
+              <p class="modal-hint">{{ 'errorModal.hintNetwork' | translate }}</p>
             } @else if (error.status >= 500) {
-              <p class="modal-hint">This is a server issue. Please try again in a few moments.</p>
+              <p class="modal-hint">{{ 'errorModal.hintServer' | translate }}</p>
             }
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-primary" (click)="close.emit()" autofocus>Close</button>
+            <button type="button" class="btn btn-primary" (click)="close.emit()" autofocus>{{ 'errorModal.close' | translate }}</button>
           </div>
         </div>
       </div>
@@ -103,9 +105,11 @@ import { ApiErrorResponse } from '../../../core/models/api-error-response.model'
   `,
 })
 export class ErrorModalComponent implements AfterViewInit {
+  private readonly translation = inject(TranslationService);
+
   @Input({ required: true }) error: ApiErrorResponse | null = null;
-  @Input() title = 'Report Not Submitted';
-  @Input() message = 'Your report could not be submitted. Please try again.';
+  @Input() title = this.translation.t('errorModal.defaultTitle');
+  @Input() message = this.translation.t('errorModal.defaultMessage');
   @Output() close = new EventEmitter<void>();
 
   @ViewChild('modalContainer') modalContainer!: ElementRef<HTMLElement>;

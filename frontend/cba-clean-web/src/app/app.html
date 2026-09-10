@@ -1,20 +1,24 @@
 <header class="app-header">
   <nav>
-    <a routerLink="/" class="app-title">CBA Clean</a>
+    <a routerLink="/" class="app-title">{{ 'nav.appTitle' | translate }}</a>
     <div class="auth-controls">
+      <div class="lang-switch" role="group" aria-label="Language">
+        <button type="button" class="btn-lang" [class.active]="translation.locale() === 'en'" (click)="setLocale('en')">EN</button>
+        <button type="button" class="btn-lang" [class.active]="translation.locale() === 'es'" (click)="setLocale('es')">ES</button>
+      </div>
       @if (isAuthenticated()) {
         <span class="user-info">{{ username() }}</span>
-        <button type="button" class="btn btn-logout" (click)="onLogout()">Logout</button>
+        <button type="button" class="btn btn-logout" (click)="onLogout()">{{ 'nav.logout' | translate }}</button>
       } @else {
-        <button type="button" class="btn btn-login" (click)="onLogin()">Login</button>
+        <button type="button" class="btn btn-login" (click)="onLogin()">{{ 'nav.login' | translate }}</button>
       }
     </div>
   </nav>
 </header>
 @if (isDemoVisitor()) {
   <div class="demo-banner" role="status">
-    <strong>Demo Mode — Read Only.</strong>
-    You are viewing a public demo of CBA Clean. Authentication is required to interact with the application or modify data.
+    <strong>{{ 'demoBanner.title' | translate }}</strong>
+    {{ 'demoBanner.body' | translate }}
   </div>
 }
 <app-navigation />

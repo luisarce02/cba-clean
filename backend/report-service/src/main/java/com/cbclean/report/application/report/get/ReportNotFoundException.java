@@ -9,7 +9,14 @@ import com.cbclean.report.domain.model.ReportId;
  */
 public class ReportNotFoundException extends RuntimeException {
 
+    private final ReportId id;
+
     public ReportNotFoundException(ReportId id) {
         super("Report not found: " + id);
+        this.id = id;
+    }
+
+    public ReportId getId() {
+        return id;
     }
 }
